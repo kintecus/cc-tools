@@ -10,6 +10,22 @@ Personal productivity plugin for Claude Code. Writing voice, daily notes, PM pri
 - **`/reflect`** - End-of-day review: compares daily note plan vs actual git/session activity, tracks time per project with costs, appends summary to daily note, updates auto-memory with durable insights.
 - **`/pm-principles`** - Structured interview to articulate your PM operating system. Generates a living PRINCIPLES.md document.
 
+## MCP server: gemini-image
+
+Generate and edit images using Google's Gemini API (nanobanana). Provides two tools:
+
+- **`generate_image`** - text-to-image generation. Params: `prompt`, optional `output_path`, optional `aspect_ratio`.
+- **`edit_image`** - modify an existing image with a text prompt. Params: `prompt`, `source_image_path`, optional `output_path`.
+
+Images are saved to `~/Downloads/gemini_{timestamp}.png` by default.
+
+**Setup**: export your Google AI Studio API key:
+
+```bash
+# Add to ~/.zshenv
+export GEMINI_API_KEY="your-key-from-aistudio.google.com/apikey"
+```
+
 ## SessionStart hook
 
 Injects today's Obsidian daily note into every session for situational awareness. Requires Obsidian desktop app (v1.12+) running with CLI enabled.
@@ -29,6 +45,8 @@ git clone https://github.com/kintecus/cc-tools.git ~/.claude/plugins/marketplace
 - Claude Code
 - Obsidian v1.12+ (for daily-note and reflect features, optional for other commands)
 - retroscope plugin (for /reflect time tracking, optional - works without it)
+- `GEMINI_API_KEY` env var (for image generation, optional for other commands)
+- `uv` (for running the MCP server)
 
 ## License
 

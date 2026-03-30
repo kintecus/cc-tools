@@ -18,6 +18,9 @@ hooks/
   hooks.json            # SessionStart hook definition
 scripts/
   inject-rules.sh       # reads today's Obsidian daily note into session context
+mcp/
+  gemini_image.py       # Gemini image generation MCP server
+.mcp.json               # MCP server registration
 commands/
   prose-deslop/         # writing voice transformation
     SKILL.md
@@ -40,6 +43,15 @@ commands/
 - **Hook scripts**: use `${CLAUDE_PLUGIN_ROOT}` in hooks.json, with `PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"` fallback in scripts
 - **SessionStart output**: keep under 300 tokens. The daily note injection is non-deterministic (content changes during day) so it won't benefit from API prefix caching
 - **No `skills/` directory**: all skills are user-invoked commands, so `plugin.json` points both `commands` and `skills` at `./commands/`
+
+## MCP server: gemini-image
+
+The plugin includes an MCP server for Gemini (nanobanana) image generation. Registered via `.mcp.json`, started automatically when the plugin is enabled.
+
+- **Tools**: `generate_image` (text-to-image), `edit_image` (image+text-to-image)
+- **Env var**: `GEMINI_API_KEY` (from Google AI Studio)
+- **Output**: saves PNG to `~/Downloads/gemini_{timestamp}.png` by default
+- **Runtime**: `uv run` with inline PEP 723 deps (mcp, httpx) - no install step
 
 ## Obsidian CLI dependency
 
