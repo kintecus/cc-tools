@@ -18,8 +18,10 @@ fi
 
 [[ -z "$OUTPUT" ]] && exit 0
 
+TODAY=$(date "+%A, %B %d, %Y")
+
 cat <<EOF
-## Today's daily note
+## Today is $TODAY
 
 $OUTPUT
 EOF
