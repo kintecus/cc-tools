@@ -12,34 +12,41 @@ The daily note is the single source of truth for the day's activities across all
 
 ## CLI reference
 
-All commands use the Obsidian CLI. Always filter stderr noise:
+All commands use the Obsidian CLI. Always pin to the correct vault and filter stderr noise:
 
 ```bash
 OBSIDIAN="/Applications/Obsidian.app/Contents/MacOS/obsidian"
+VAULT='vault="Obsidian Vault"'
+```
+
+**Important**: Always include `vault="Obsidian Vault"` in every command. The active vault may change when other vaults are open (e.g., pm-workspace). If the CLI returns empty, fall back to reading the file directly from iCloud:
+
+```bash
+DAILY_FILE="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian Vault/Journal/Daily/$(date +%Y-%m-%d).md"
 ```
 
 ### Read today's note
 
 ```bash
-$OBSIDIAN daily:read 2>&1 | grep -v "Loading updated\|out of date\|better CLI"
+$OBSIDIAN daily:read vault="Obsidian Vault" 2>&1 | grep -v "Loading updated\|out of date\|better CLI"
 ```
 
 ### Append to today's note
 
 ```bash
-$OBSIDIAN daily:append content="- **HH:MM** [[Project]] - description" 2>&1 | grep -v "Loading updated\|out of date\|better CLI"
+$OBSIDIAN daily:append vault="Obsidian Vault" content="- **HH:MM** [[Project]] - description" 2>&1 | grep -v "Loading updated\|out of date\|better CLI"
 ```
 
 ### List open tasks from today's note
 
 ```bash
-$OBSIDIAN tasks daily todo 2>&1 | grep -v "Loading updated\|out of date\|better CLI"
+$OBSIDIAN tasks daily todo vault="Obsidian Vault" 2>&1 | grep -v "Loading updated\|out of date\|better CLI"
 ```
 
 ### Complete a task
 
 ```bash
-$OBSIDIAN task daily line=N done 2>&1 | grep -v "Loading updated\|out of date\|better CLI"
+$OBSIDIAN task daily line=N done vault="Obsidian Vault" 2>&1 | grep -v "Loading updated\|out of date\|better CLI"
 ```
 
 ## Activity log format
