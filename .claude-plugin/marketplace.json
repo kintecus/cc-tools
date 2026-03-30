@@ -1,0 +1,10 @@
+{
+  "name": "kintecus",
+  "plugins": [
+    {
+      "name": "tools",
+      "source": "./",
+      "description": "Personal productivity tools: writing voice, daily notes, PM principles"
+    }
+  ]
+}

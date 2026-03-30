@@ -1,0 +1,8 @@
+# Claude Code local files
+.claude/settings.local.json
+
+# OS
+.DS_Store
+
+# Generated
+commands/pm-principles/PRINCIPLES.md

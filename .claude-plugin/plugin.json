@@ -1,0 +1,11 @@
+{
+  "name": "tools",
+  "version": "0.1.0",
+  "description": "Personal productivity tools: writing voice, daily notes, PM principles",
+  "author": {
+    "name": "kintecus"
+  },
+  "license": "MIT",
+  "commands": ["./commands/"],
+  "skills": ["./commands/"]
+}
