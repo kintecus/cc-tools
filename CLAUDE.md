@@ -27,6 +27,8 @@ commands/
     references/         # source-prompt.md
   daily-note/           # Obsidian daily note read/append
     SKILL.md
+  reflect/              # End-of-day review and memory update
+    SKILL.md
   pm-principles/        # PM principles interview + generation
     SKILL.md
 ```
@@ -50,6 +52,7 @@ The daily-note skill and SessionStart hook require the Obsidian CLI (`/Applicati
 | `/prose-deslop` | "de-slop", "humanize", "make it sound like me" | Voice transformation with format-specific rules |
 | `/amazon-writing` | "finalize", "make it crisp", "no fluff" | Data-driven writing rigor |
 | `/daily-note` | "log this", "update daily note", "note that down" | Obsidian daily note read/append |
+| `/reflect` | "end of day", "wrap up day", "what did I do today" | Plan vs actual review, time tracking, memory updates |
 | `/pm-principles` | explicit invocation only | PM principles interview generator |
 
 ## Adding a new skill
