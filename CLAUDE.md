@@ -22,6 +22,7 @@ mcp/
   gemini_image.py       # Gemini image generation MCP server
 .mcp.json               # MCP server registration
 commands/
+  research/             # web research (quick lookup + deep)
   prose-deslop/         # writing voice transformation
     SKILL.md
     formats/            # email.md, slack.md, prd.md, vision-doc.md
@@ -66,6 +67,7 @@ The daily-note skill and SessionStart hook require the Obsidian CLI (`/Applicati
 | `/daily-note` | "log this", "update daily note", "note that down" | Obsidian daily note read/append |
 | `/reflect` | "end of day", "wrap up day", "what did I do today" | Plan vs actual review, time tracking, memory updates |
 | `/pm-principles` | explicit invocation only | PM principles interview generator |
+| `/research` | "research X", "look up X", "find docs for", "compare X vs Y" | Web research with quick/deep modes |
 
 ## Adding a new skill
 
