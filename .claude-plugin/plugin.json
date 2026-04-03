@@ -1,9 +1,11 @@
 {
   "name": "tools",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Personal productivity tools: writing voice, daily notes, reflection, PM principles, image generation, clippings digest, web research",
   "author": {
     "name": "kintecus"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "commands": ["./commands/"],
+  "skills": []
 }
