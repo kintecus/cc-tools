@@ -82,10 +82,11 @@ The daily-note skill and SessionStart hook require the Obsidian CLI (`/Applicati
 2. If the skill has supporting files (formats, references, templates), put them in subdirectories alongside SKILL.md
 3. Use `${CLAUDE_PLUGIN_ROOT}` for any cross-references to other plugin files - never hardcoded paths
 4. Add `disable-model-invocation: true` to frontmatter if the skill should only be invoked explicitly (not auto-matched)
-5. Add a symlink from `~/.claude/skills/<skill-name>` to `commands/<skill-name>/` so it works before marketplace install
-6. Add the command to the Commands table in this file and in README.md
-7. Bump MINOR version in `.claude-plugin/plugin.json`
+5. Add the command to the Commands table in this file and in README.md
+6. Bump MINOR version in `.claude-plugin/plugin.json`
+7. Run `./scripts/sync-to-cache.sh` to update the plugin cache
 8. Commit and push
+9. Restart Claude Code to load the new skill
 
 ## Version bumps
 
@@ -94,14 +95,15 @@ Bump version in `.claude-plugin/plugin.json` when making changes:
 - MINOR: new command, new format file, new hook
 - MAJOR: breaking changes to skill interfaces
 
-## Testing locally
+## Syncing to Claude Code
+
+This plugin is registered as a private marketplace at `kintecus/cc-tools`. After making changes:
 
 ```bash
-# Copy to marketplace cache
-cp -r . ~/.claude/plugins/marketplaces/kintecus/
+# Sync local changes to plugin cache (updates marketplace clone + cache + install record)
+./scripts/sync-to-cache.sh
 
-# Enable in settings.json
-# "tools@kintecus": true
-
-# Restart Claude Code
+# Restart Claude Code to load the updated version
 ```
+
+The plugin is enabled globally via `"tools@kintecus": true` in `~/.claude/settings.json`. No symlinks needed - the plugin system loads skills from the cache at `~/.claude/plugins/cache/kintecus/tools/<version>/`.
