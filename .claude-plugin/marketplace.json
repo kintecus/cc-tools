@@ -1,5 +1,6 @@
 {
   "name": "kintecus",
+  "owner": { "name": "kintecus" },
   "plugins": [
     {
       "name": "tools",
