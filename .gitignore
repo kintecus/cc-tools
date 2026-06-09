@@ -7,6 +7,9 @@
 # Generated
 commands/pm-principles/PRINCIPLES.md
 
+# Frontend bench run outputs (heavy, throwaway; verdicts/ is committed)
+docs/evals/frontend-bench/runs/
+
 # Python
 __pycache__/
 *.pyc

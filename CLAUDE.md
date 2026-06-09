@@ -26,7 +26,7 @@ Follows the [tribe-coding plugin conventions](https://github.com/tribe-coding/cl
 
 ```
 .claude-plugin/
-  plugin.json           # manifest (name, version, commands, skills)
+  plugin.json           # manifest (name, version, commands; skills is empty [])
   marketplace.json      # marketplace registration
 hooks/
   hooks.json            # SessionStart + plan-review gate hook definitions
@@ -39,9 +39,11 @@ scripts/
 mcp/
   gemini_image.py       # Gemini image generation MCP server
 .mcp.json               # MCP server registration
-agents/
-  commit.md             # git committer (conventional commits + impact framing)
 commands/
+  commit/               # git committer (conventional commits + impact framing)
+    SKILL.md
+  build-partner/        # senior engineering-partner persona (Rams/Fadell/Shape Up/YAGNI)
+    SKILL.md
   pr/                   # PR creation with structured template
   research/             # web research (quick lookup + deep)
   prose-deslop/         # writing voice transformation
@@ -83,7 +85,7 @@ inside the command dir. The skill invokes it via
 - **Path references**: use `${CLAUDE_PLUGIN_ROOT}` for cross-skill references, never hardcoded paths
 - **Hook scripts**: use `${CLAUDE_PLUGIN_ROOT}` in hooks.json, with `PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"` fallback in scripts
 - **SessionStart output**: keep under 300 tokens. The daily note injection is non-deterministic (content changes during day) so it won't benefit from API prefix caching
-- **No `skills/` directory**: all skills are user-invoked commands, so `plugin.json` points both `commands` and `skills` at `./commands/`
+- **No `skills/` directory**: all skills are user-invoked commands under `commands/`, so `plugin.json` points `commands` at `./commands/` and leaves `skills` empty (`[]`)
 
 ## MCP server: gemini-image
 
@@ -129,12 +131,8 @@ The daily-note skill and SessionStart hook require the Obsidian CLI (`/Applicati
 | `/yt-transcript` | "what did X say in this video", "find the quote in this talk", "search/summarize this YouTube video" | Fetch a YouTube caption track via yt-dlp, clean/dedupe it, and search/quote/summarize spoken content that web search can't see. Bundled script |
 | `/horizon` | "weekly retro", "horizon week", "how was my week" (explicit-only) | Long-horizon retrospective. v1 = weekly: Haiku per-day summaries + Sonnet synthesis (Opus with `--deep`). Includes a deterministic Timesheet section (`horizon-timesheet.py`, Step 5c) for defensible per-project billable hours; `--no-timesheet` to skip. Writes to retroscope storage repo + mirrors to vault. |
 | `/harvest-memory` | explicit invocation only | Promote cross-project facts from per-project auto-memory stores into the global memory store (`~/.claude/global-memory/`, loaded everywhere via `@import`). Propose-then-confirm; writes nothing without approval. |
-
-## Agents
-
-| Agent | Trigger | Description |
-|-------|---------|-------------|
-| `commit` | PROACTIVE on git commits | Conventional commits with user-facing impact framing |
+| `/commit` | PROACTIVE on git commits | Conventional commits with user-facing impact framing |
+| `/build-partner` | explicit invocation only | Senior engineering-partner persona for building: less-but-better, boring-tech-wins, YAGNI, vertical-slice-first. Owns architecture/data-model/restraint; defers the visual layer to `frontend-design`. |
 
 ## Adding a new skill
 
