@@ -1,0 +1,18 @@
+#!/bin/bash
+# Thin wrapper for Obsidian CLI: auto-pins default vault.
+# Exists mainly so CC can use a single Bash(obsidian-cli:*) permission.
+# Usage: obsidian-cli <subcommand> [args...]
+set -euo pipefail
+
+# Use the dedicated CLI binary, NOT the Electron GUI binary (.../MacOS/obsidian).
+# The GUI binary accepts the same args but is fragile (e.g. --help can hang).
+OBSIDIAN="/Applications/Obsidian.app/Contents/MacOS/obsidian-cli"
+
+# vault= MUST precede the subcommand or the CLI silently ignores it and falls
+# through to whichever vault the GUI currently has focused. Auto-pin unless the
+# caller already passed a vault= argument.
+for arg in "$@"; do
+  [[ "$arg" == vault=* ]] && exec "$OBSIDIAN" "$@"
+done
+
+exec "$OBSIDIAN" vault="Obsidian Vault" "$@"

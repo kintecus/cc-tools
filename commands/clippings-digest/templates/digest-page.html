@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<!--
+  clippings-digest HTML template.
+
+  HOW TO USE (the skill fills this in, never hand-edited):
+  1. Replace every {{TOKEN}} with real content.
+  2. Clone the block between <!-- BEGIN TOPIC SECTION --> and <!-- END TOPIC SECTION -->
+     once per category. Inside it, clone the .dog card once per clipping.
+  3. Clone the <!-- SOURCE ITEM --> <li> once per clipping.
+  4. Delete all instructional comments (including this block) from the final file.
+  5. For bespoke components (charts, players, timeline, callout, bottomline),
+     see references/component-kit.md — only add them when the batch warrants it.
+
+  The <style> block below is the frozen design system. Do not modify it.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500;1,9..144,600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f1e8;
+    --paper: #fffdf7;
+    --ink: #1a1916;
+    --muted: #6f6a5e;
+    --faint: #9a958a;
+    --rule: #ddd6c5;
+    --accent: #2b50f4;
+    --accent-soft: #e5e9ff;
+    --highlight: #ffe48a;
+    --warn: #b45309;
+    --warn-soft: #fbeede;
+
+    --oai: #10a37f;     /* OpenAI green */
+    --ant: #d97757;     /* Anthropic clay */
+    --ggl: #4285f4;     /* Google blue */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(43,80,244,0.04), transparent 38%),
+      radial-gradient(circle at 88% 92%, rgba(217,119,87,0.05), transparent 42%);
+    color: var(--ink);
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 22px;
+    line-height: 1.6;
+    padding: 0 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 56px 0 110px;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 60px;
+  }
+  .logo {
+    background: var(--accent);
+    color: #fff;
+    font-family: "Fraunces", serif;
+    font-weight: 900;
+    font-size: 16px;
+    letter-spacing: 0.02em;
+    padding: 7px 13px 6px;
+    border-radius: 9px;
+    box-shadow: 3px 3px 0 rgba(43,80,244,0.18);
+  }
+  .masthead .from {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+
+  /* ---------- header ---------- */
+  .topic-tag {
+    display: inline-block;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    border-radius: 999px;
+    margin-bottom: 26px;
+  }
+
+  h1 {
+    font-family: "Fraunces", serif;
+    font-optical-sizing: 144;
+    font-size: 54px;
+    line-height: 1.04;
+    letter-spacing: -0.022em;
+    font-weight: 900;
+    margin-bottom: 22px;
+  }
+  h1 em {
+    font-style: italic;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .standfirst {
+    font-family: "Newsreader", serif;
+    font-size: 25px;
+    line-height: 1.48;
+    color: var(--muted);
+    margin-bottom: 32px;
+    font-weight: 400;
+  }
+
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-bottom: 30px;
+    border-bottom: 1.5px solid var(--rule);
+    margin-bottom: 44px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+  .byline {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .meta .sep { color: var(--rule); }
+
+  /* ---------- body ---------- */
+  p { margin-bottom: 22px; }
+  /* Axios-style bolded section lead-in */
+  p .axkey {
+    font-family: "Fraunces", serif;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  p .axkey::after { content: " "; }
+
+  .lead {
+    font-size: 23px;
+    line-height: 1.5;
+  }
+  .lead::first-letter {
+    font-family: "Fraunces", serif;
+    font-weight: 900;
+    font-size: 82px;
+    float: left;
+    line-height: 0.78;
+    margin: 10px 13px 0 0;
+    color: var(--accent);
+  }
+
+  h2 {
+    font-family: "Fraunces", serif;
+    font-size: 33px;
+    line-height: 1.18;
+    letter-spacing: -0.018em;
+    font-weight: 700;
+    margin: 60px 0 8px;
+  }
+  .h2-kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 56px 0 -2px;
+  }
+  .h2-kicker + h2 { margin-top: 6px; }
+
+  h3 {
+    font-family: "Fraunces", serif;
+    font-size: 23px;
+    font-weight: 600;
+    line-height: 1.26;
+    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+  }
+
+  mark {
+    background: linear-gradient(180deg, transparent 54%, var(--highlight) 54%);
+    padding: 0 2px;
+  }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1.5px solid var(--accent-soft);
+  }
+  a:hover { border-bottom-color: var(--accent); }
+
+  /* ---------- chart figure ---------- */
+  figure {
+    margin: 40px 0;
+    background: var(--paper);
+    border: 1.5px solid var(--rule);
+    border-radius: 18px;
+    padding: 30px 30px 24px;
+    box-shadow: 5px 6px 0 rgba(26,25,22,0.05);
+  }
+  figure .fig-kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 4px;
+  }
+  figure .fig-title {
+    font-family: "Fraunces", serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.22;
+    margin-bottom: 20px;
+  }
+  figcaption {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--rule);
+    font-family: "Newsreader", serif;
+    font-size: 17px;
+    font-style: italic;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .chart-svg { width: 100%; height: auto; display: block; overflow: visible; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 18px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.01em;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+
+  /* svg text helpers */
+  .ax-label { font-family: "IBM Plex Mono", monospace; font-size: 10px; fill: var(--faint); }
+  .val-label { font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600; }
+  .grid-line { stroke: var(--rule); stroke-width: 1; }
+  .grid-line.dash { stroke-dasharray: 3 3; }
+
+  /* ---------- dog cards ---------- */
+  .dog {
+    background: var(--paper);
+    border: 1.5px solid var(--rule);
+    border-radius: 16px;
+    padding: 26px 28px;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .dog .num {
+    position: absolute;
+    top: -14px; left: 24px;
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    width: 34px; height: 34px;
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: 9px;
+    font-family: "Fraunces", serif;
+    font-weight: 900;
+    font-size: 16px;
+  }
+  .dog h3 { margin-top: 6px; }
+  .dog h3 em { color: var(--accent); }
+  .dog p:last-child { margin-bottom: 0; font-size: 20.5px; line-height: 1.55; }
+  /* tag + source row inside a dog card */
+  .dog .clip-meta {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--rule);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.02em;
+    color: var(--faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    align-items: baseline;
+  }
+  .dog .clip-meta .tags { text-transform: lowercase; }
+  .dog .clip-meta a { font-size: 11.5px; }
+
+  /* ---------- pull quote ---------- */
+  blockquote {
+    margin: 44px 0;
+    padding: 6px 0 6px 26px;
+    border-left: 4px solid var(--accent);
+    font-family: "Fraunces", serif;
+    font-size: 28px;
+    line-height: 1.32;
+    letter-spacing: -0.015em;
+    font-weight: 500;
+    font-style: italic;
+  }
+
+  /* ---------- callout ---------- */
+  .callout {
+    background: var(--warn-soft);
+    border: 1.5px solid #efd3ad;
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 36px 0;
+  }
+  .callout .label {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--warn);
+    margin-bottom: 8px;
+  }
+  .callout p { margin-bottom: 0; font-size: 19px; line-height: 1.52; }
+
+  /* ---------- player verdict cards ---------- */
+  .players {
+    display: grid;
+    gap: 16px;
+    margin: 28px 0 8px;
+  }
+  .player {
+    background: var(--paper);
+    border: 1.5px solid var(--rule);
+    border-radius: 16px;
+    padding: 24px 26px;
+    border-top: 5px solid var(--pc);
+  }
+  .player .pname {
+    font-family: "Fraunces", serif;
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 3px;
+  }
+  .player .pdot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--pc);
+    align-self: center;
+  }
+  .player .ptag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 14px;
+  }
+  .player .prow {
+    display: flex; gap: 14px;
+    padding: 10px 0;
+    border-top: 1px dashed var(--rule);
+    font-size: 18.5px;
+    line-height: 1.45;
+  }
+  .player .prow:first-of-type { border-top: none; padding-top: 2px; }
+  .player .pk {
+    flex: 0 0 96px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-top: 4px;
+  }
+  .player .pv { flex: 1; }
+  .player .pv strong { font-weight: 600; }
+  .player .verdict {
+    margin-top: 14px;
+    font-family: "Newsreader", serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--ink);
+    background: var(--vc, var(--accent-soft));
+    border-radius: 9px;
+    padding: 12px 15px;
+    line-height: 1.45;
+  }
+
+  /* ---------- timeline ---------- */
+  .timeline { margin: 28px 0 8px; }
+  .tl-row {
+    display: flex;
+    gap: 22px;
+    padding: 24px 0;
+    border-top: 1.5px solid var(--rule);
+  }
+  .tl-row:last-child { border-bottom: 1.5px solid var(--rule); }
+  .tl-when {
+    flex: 0 0 120px;
+    font-family: "Fraunces", serif;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+  }
+  .tl-when small {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 400;
+    font-size: 11px;
+    color: var(--faint);
+    margin-top: 2px;
+  }
+  .tl-what { flex: 1; }
+  .tl-what p { margin-bottom: 0; font-size: 19px; line-height: 1.5; }
+  .tl-what .verdict {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border-radius: 6px;
+    margin-bottom: 9px;
+  }
+  .v-good { background: #dcefdc; color: #1f6b2e; }
+  .v-watch { background: var(--highlight); color: #8a6300; }
+
+  /* ---------- bottom line ---------- */
+  .bottomline {
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: 20px;
+    padding: 38px 36px;
+    margin: 50px 0 8px;
+    box-shadow: 7px 8px 0 rgba(26,25,22,0.12);
+  }
+  .bottomline .h2-kicker { color: #8b9bff; margin-top: 0; }
+  .bottomline h2 { color: var(--bg); margin-top: 6px; }
+  .bottomline p { color: #d8d3c5; font-size: 20.5px; line-height: 1.55; }
+  .bottomline p:last-child { margin-bottom: 0; }
+  .bottomline mark {
+    background: linear-gradient(180deg, transparent 54%, var(--accent) 54%);
+    color: #fff;
+  }
+  .bottomline strong { color: #fff; }
+
+  /* ---------- sources ---------- */
+  .sources {
+    margin-top: 52px;
+    padding-top: 28px;
+    border-top: 1.5px solid var(--rule);
+  }
+  .sources h3 {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--faint);
+    margin-bottom: 14px;
+  }
+  .sources ul { list-style: none; }
+  .sources li {
+    font-family: "Newsreader", serif;
+    font-size: 17px;
+    padding: 6px 0;
+    color: var(--muted);
+  }
+
+  /* ---------- methodology / footer note ---------- */
+  .endnote {
+    margin-top: 40px;
+    padding: 22px 24px;
+    background: var(--paper);
+    border: 1.5px dashed var(--rule);
+    border-radius: 14px;
+    font-family: "Newsreader", serif;
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .endnote .label {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 8px;
+  }
+  .endnote p { margin-bottom: 12px; }
+  .endnote p:last-child { margin-bottom: 0; }
+
+  /* ---------- load animation ---------- */
+  .reveal { opacity: 0; transform: translateY(14px); animation: rise 0.7s cubic-bezier(0.2,0.7,0.2,1) forwards; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  .d1 { animation-delay: 0.05s; } .d2 { animation-delay: 0.13s; }
+  .d3 { animation-delay: 0.21s; } .d4 { animation-delay: 0.29s; }
+
+  /* chart bar grow */
+  @keyframes growBar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  .bar-grp rect { transform-box: fill-box; transform-origin: bottom; animation: growBar 0.9s cubic-bezier(0.3,0.8,0.3,1) backwards; }
+  @keyframes drawLine { to { stroke-dashoffset: 0; } }
+  .trend-line {
+    stroke-dasharray: 620; stroke-dashoffset: 620;
+    animation: drawLine 1.6s ease-out 0.3s forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal, .bar-grp rect, .trend-line { animation: none; opacity: 1; transform: none; stroke-dashoffset: 0; }
+  }
+
+  @media (max-width: 600px) {
+    body { font-size: 20px; }
+    h1 { font-size: 39px; }
+    h2 { font-size: 28px; }
+    .lead { font-size: 21px; }
+    .standfirst { font-size: 22px; }
+    blockquote { font-size: 24px; }
+    .wrap { padding: 38px 0 70px; }
+    figure { padding: 22px 18px 20px; }
+    .tl-row { flex-direction: column; gap: 8px; }
+    .tl-when { flex-basis: auto; }
+    .player .prow { flex-direction: column; gap: 2px; }
+    .player .pk { padding-top: 0; }
+    .lead::first-letter { font-size: 66px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead reveal d1">
+    <span class="logo">CLIPPINGS</span>
+    <span class="from">The Clippings Digest · {{DATE_RANGE}}</span>
+  </div>
+
+  <span class="topic-tag reveal d1">📌 Web reading · {{CLIPPING_COUNT}} clippings</span>
+
+  <h1 class="reveal d1">{{TITLE}}</h1>
+
+  <p class="standfirst reveal d2">{{STANDFIRST}}</p>
+
+  <div class="meta reveal d2">
+    <span class="byline">Clippings Digest</span>
+    <span class="sep">·</span>
+    <span>{{GENERATED_DATE}}</span>
+    <span class="sep">·</span>
+    <span>{{READ_TIME}} min read</span>
+    <span class="sep">·</span>
+    <span>{{TOP_CATEGORIES}}</span>
+  </div>
+
+  <p class="lead reveal d3">{{LEAD_PARAGRAPH}}</p>
+
+  <!-- BEGIN TOPIC SECTION  (clone once per category) -->
+  <h2 class="h2-kicker">{{CATEGORY_KICKER}}</h2>
+  <h2>{{CATEGORY_HEADING}}</h2>
+
+  <!-- clone the .dog card below once per clipping in this category -->
+  <div class="dog reveal d1">
+    <span class="num">{{N}}</span>
+    <h3>{{CLIPPING_TITLE}}</h3>
+    <p>{{CLIPPING_SUMMARY}}</p>
+    <div class="clip-meta">
+      <span class="tags">{{TAGS}}</span>
+      <a href="{{SOURCE_URL}}">{{SOURCE_DOMAIN}} ↗</a>
+    </div>
+  </div>
+  <!-- END TOPIC SECTION -->
+
+  <!--
+    OPTIONAL: pull quote — elevate the single best clipping's core idea.
+    This is the one bespoke component that always suits a digest. Use once.
+    <blockquote class="reveal d1">{{BEST_INSIGHT}}</blockquote>
+  -->
+
+  <!--
+    OPTIONAL bespoke components — see references/component-kit.md.
+    Only add a chart / .players / .timeline / .callout / .bottomline when the
+    batch genuinely supports it. Default digest uses none of them.
+  -->
+
+  <div class="sources reveal d2">
+    <h3>Sources</h3>
+    <ul>
+      <!-- SOURCE ITEM  (clone once per clipping) -->
+      <li><a href="{{SOURCE_URL}}">{{SOURCE_TITLE}} — {{SOURCE_DOMAIN}}</a></li>
+    </ul>
+  </div>
+
+  <div class="endnote reveal d2">
+    <span class="label">How this was made</span>
+    <p>{{ENDNOTE}}</p>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+#
+# yt-transcript — fetch and clean a YouTube video's caption track for text search.
+#
+# Captions (not the video) are downloaded via yt-dlp, converted to SRT, and
+# cleaned: rolling-caption duplicates removed, timestamp/index lines stripped,
+# collapsed to readable plain text. Auto-generated captions are imperfect
+# (punctuation, the odd repeated word) but good enough to locate and quote.
+#
+# Caption-track preference: manual subs first (human-authored, accurate), then
+# auto-generated as fallback. If neither exists, exits non-zero with a clear
+# message so the caller can warn the user.
+#
+# Usage:
+#   yt-transcript <url|id>                 # print cleaned full transcript to stdout
+#   yt-transcript <url|id> -o FILE         # also write cleaned transcript to FILE
+#   yt-transcript <url|id> --raw           # keep SRT timestamps (no cleaning)
+#   yt-transcript <url|id> --lang LANG     # caption language (default: en)
+#   yt-transcript <url|id> --keep          # keep the intermediate .srt file
+#
+# Search is the caller's job: pipe to grep, e.g.
+#   yt-transcript <url> | grep -n -i "kubernetes"
+#
+# Requires: yt-dlp (brew install yt-dlp). Optional: deno (helps yt-dlp solve
+# YouTube's JS challenges; yt-dlp warns but usually still works without it).
+
+set -euo pipefail
+
+die() { printf 'yt-transcript: %s\n' "$1" >&2; exit "${2:-1}"; }
+
+command -v yt-dlp >/dev/null 2>&1 || die "yt-dlp not found. Install with: brew install yt-dlp" 127
+
+LANG_CODE="en"
+OUT=""
+RAW=0
+KEEP=0
+URL=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -o|--out)   OUT="${2:-}"; shift 2 ;;
+    --lang)     LANG_CODE="${2:-}"; shift 2 ;;
+    --raw)      RAW=1; shift ;;
+    --keep)     KEEP=1; shift ;;
+    -h|--help)  sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -*)         die "unknown option: $1" ;;
+    *)          URL="$1"; shift ;;
+  esac
+done
+
+[[ -n "$URL" ]] || die "no URL or video ID given. Try: yt-transcript --help"
+
+# A bare 11-char ID is accepted; yt-dlp resolves full URLs itself.
+if [[ "$URL" =~ ^[A-Za-z0-9_-]{11}$ ]]; then
+  URL="https://www.youtube.com/watch?v=$URL"
+fi
+
+WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/yt-transcript.XXXXXX")"
+cleanup() { [[ "$KEEP" -eq 1 ]] || rm -rf "$WORKDIR"; }
+trap cleanup EXIT
+
+base="$WORKDIR/sub"
+
+# Try manual subs first, then auto-generated, in the requested language.
+# yt-dlp writes nothing (exit 0) when a track is absent, so we check for files.
+fetch() {
+  local auto_flag="$1"
+  yt-dlp --skip-download "$auto_flag" --sub-lang "$LANG_CODE" \
+    --sub-format vtt --convert-subs srt \
+    -o "$base.%(ext)s" "$URL" >/dev/null 2>"$WORKDIR/err.log" || true
+}
+
+fetch --write-sub
+srt="$(find "$WORKDIR" -name '*.srt' -print -quit 2>/dev/null || true)"
+src="manual"
+if [[ -z "$srt" ]]; then
+  fetch --write-auto-sub
+  srt="$(find "$WORKDIR" -name '*.srt' -print -quit 2>/dev/null || true)"
+  src="auto-generated"
+fi
+
+if [[ -z "$srt" ]]; then
+  # Surface yt-dlp's own error if it looks meaningful, else generic message.
+  if grep -qi "Video unavailable\|Private video\|members-only\|sign in" "$WORKDIR/err.log" 2>/dev/null; then
+    die "could not fetch captions: $(grep -i 'unavailable\|private\|members-only\|sign in' "$WORKDIR/err.log" | head -1)"
+  fi
+  die "no '$LANG_CODE' captions found for this video (neither manual nor auto-generated)." 2
+fi
+
+if [[ "$src" == "auto-generated" ]]; then
+  printf 'yt-transcript: using AUTO-GENERATED captions — text is imperfect, verify exact wording before quoting.\n' >&2
+fi
+
+if [[ "$RAW" -eq 1 ]]; then
+  if [[ -n "$OUT" ]]; then cp "$srt" "$OUT"; printf 'wrote raw SRT to %s\n' "$OUT" >&2; fi
+  cat "$srt"
+  exit 0
+fi
+
+# Clean: drop index lines, timestamp lines, blanks; dedupe YouTube's rolling
+# 3x-repeated caption lines (consecutive and near-window duplicates).
+clean() {
+  awk '
+    /^[0-9]+$/            { next }                 # SRT index line
+    /-->/                 { next }                 # timestamp line
+    { gsub(/<[^>]*>/, "") }                        # inline tags, if any
+    { sub(/^[ \t]+/, ""); sub(/[ \t]+$/, "") }     # trim
+    $0 == ""              { next }
+    !seen[$0]++           { print }                # dedupe identical lines
+  ' "$1"
+}
+
+if [[ -n "$OUT" ]]; then
+  clean "$srt" | tee "$OUT"
+  printf 'yt-transcript: cleaned transcript written to %s\n' "$OUT" >&2
+else
+  clean "$srt"
+fi

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "gemini-image": {
+      "command": "uv",
+      "args": ["run", "${CLAUDE_PLUGIN_ROOT}/mcp/gemini_image.py"],
+      "env": {
+        "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+      }
+    }
+  }
+}
