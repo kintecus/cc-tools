@@ -6,6 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Claude Code plugin (`tools@kintecus`) packaging personal productivity skills: writing voice transformation, Amazon-style document rigor, Obsidian daily note integration, and PM principles generation.
 
+## This is a PUBLIC repo — leak hygiene is paramount
+
+`kintecus/cc-tools` is **public**. Anything committed here is world-readable and, because git history is permanent, effectively un-deletable without a history rewrite or repo recreation (the latter is what it took to clean this repo once already). The danger is specific: these skills are useful *because* they encode real personal context (real repo paths, project names, project states, colleagues, clients), and that same context must NOT land in committed examples.
+
+**Standing rule — flag before building.** When the user proposes a new skill/agent, or an edit to an existing one, and the natural implementation would bake in personal or otherwise non-public information, **flag it to the user before writing it** and propose a placeholder-based alternative. Do not silently commit real values and assume they can be scrubbed later. Things that must stay generic in committed content:
+
+- **Real names** — colleagues, clients, family. Use placeholders (the established convention: `Alex`, `Jordan`, `Sam` for people; `[[Client]]` / `client-project` for third-party clients).
+- **Client / employer-confidential references** — third-party client names, internal environment names, real business metrics. (The user's own company `Satori Ads` and own projects `puch`/`homelab`/`job-hunt-2026` are intentionally kept — those are public-facing under his own name.)
+- **Personal absolute paths** — anything under the user's home or external volumes that exposes the OS username or machine layout. Prefer `~/...` or generic example paths in docs/examples.
+- **Financial / personal-life specifics** — tax filings, banks, school/class logistics, health. These belong in the user's private Obsidian vault and auto-memory, never in a committed example.
+- **Secrets** — env-var references only (`${GEMINI_API_KEY}`), never literal keys. (None exist today; keep it that way.)
+
+**When in doubt, ask.** A one-line "this example would expose X — want a generic placeholder instead?" is always cheaper than a history rewrite. The decision was explicitly to rely on this authoring-time discipline rather than an automated pre-commit gate, so the discipline is load-bearing.
+
 ## Plugin structure
 
 Follows the [tribe-coding plugin conventions](https://github.com/tribe-coding/claude-plugins):
