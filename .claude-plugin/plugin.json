@@ -1,0 +1,13 @@
+{
+  "name": "tools",
+  "version": "0.19.0",
+  "description": "Personal productivity tools: writing voice, daily notes, reflection, long-horizon retros, PM principles, image generation, clippings digest with HTML editorial output, web research, Gemini delegation, git commit, PR creation, calendar read/write, reminders read/write, plan review, YouTube transcript search, cross-project memory harvesting",
+  "author": {
+    "name": "kintecus"
+  },
+  "license": "MIT",
+  "commands": [
+    "./commands/"
+  ],
+  "skills": []
+}

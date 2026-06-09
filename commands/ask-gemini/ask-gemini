@@ -1,0 +1,349 @@
+#!/usr/bin/env bash
+# ask-gemini — thin wrapper for delegating questions to Gemini.
+#
+# Two backends, explicitly selectable:
+#   --backend api  → AI Studio REST API. Reads key from $GEMINI_API_KEY or
+#                    ~/.config/ask-gemini/api-key. Full feature surface:
+#                    --model, --json, and --search all work here.
+#   --backend cli  → `agy -p` (Antigravity CLI) via OAuth-personal login.
+#                    Separate quota/infrastructure from the API tier. The
+#                    user's Google AI Plus subscription does NOT raise CLI
+#                    quotas — only AI Pro/Ultra do.
+#
+# Antigravity CLI migration (Google I/O 2026, May 2026):
+#   The old `gemini` CLI was replaced by Antigravity CLI (`agy`). `gemini`
+#   stops serving Pro/Ultra/free accounts on 2026-06-18. The cli backend now
+#   shells out to `agy -p`. NOTE the agy print-mode regressions vs `gemini`:
+#     - No `-m`/`--model` flag — print mode uses the account default model
+#       (Gemini 3.5 Flash). --model is therefore IGNORED on the cli backend
+#       (still honoured on the api backend).
+#     - No JSON/structured-output flag — print mode is plain text only.
+#       --json on the cli backend only appends a "respond as JSON" instruction
+#       to the prompt; it cannot guarantee well-formed JSON. Use --backend api
+#       when you need reliable JSON.
+#     - Google Search grounding is ON by default in agy print mode (part of
+#       the agent tool set) — no flag, cannot be toggled off. --search still
+#       prepends a grounding instruction so the model is steered to use it.
+#     - agy has a native --print-timeout; we pass it AND keep a bash watchdog
+#       as a hard backstop (a hung agent process is still possible).
+#
+# API-tier model: flash-class only (api backend).
+#   The api backend serves flash-class models ONLY. The free tier gives
+#   limit:0 for EVERY pro-class model (gemini-2.5-pro, 3.x-pro, pro-latest all
+#   return an instant 429 RESOURCE_EXHAUSTED — verified 2026-05-22). There is
+#   no usable `pro` alias on a free key; --model is kept for picking a specific
+#   flash variant, not for reaching pro. For a larger model, use --backend cli.
+#   API free-tier limits (May 2026): flash ~30 RPM / 1M TPM / 1500 RPD.
+#
+# Resilience:
+#   - api path retries transient 429/503/500. On a 429 it honours the
+#     server-supplied retryDelay (RetryInfo in the error body) so a transient
+#     per-minute limit is actually waited out, not abandoned after a too-short
+#     fixed backoff.
+#   - cross-backend fallback (unless --backend was explicitly forced):
+#       cli fails (timeout / non-zero exit) → fall back to api
+#       api exhausted (5xx/429 after retries) → fall back to cli
+#   - every call appends one line to ~/.config/ask-gemini/calls.log.
+#
+# Default backend selection (when --backend not passed):
+#   1. $ASK_GEMINI_BACKEND env var if set (api|cli)
+#   2. cli (agy) — the default. agy print mode is fast and reliable for plain
+#      and grounded prompts; the api free tier is the fallback (flash-only,
+#      RPM-limited). Override per-call with --backend api, or globally with
+#      ASK_GEMINI_BACKEND=api.
+#
+# Usage:
+#   ask-gemini "your prompt"
+#   ask-gemini --backend cli  --search "what's the latest on X?"
+#   ask-gemini --json "structured prompt"   (reliable JSON only on --backend api)
+#
+# Defaults: backend=api, model=flash, plain text out. For a pro-class model
+# use --backend cli — the api free tier does not serve pro at all.
+
+set -euo pipefail
+
+MODEL_ALIAS="flash"
+MODEL_FORCED=0
+WANT_JSON=0
+WANT_SEARCH=0
+BACKEND=""
+BACKEND_FORCED=0
+PROMPT=""
+
+KEYFILE="${HOME}/.config/ask-gemini/api-key"
+LOGFILE="${HOME}/.config/ask-gemini/calls.log"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --model)   MODEL_ALIAS="$2"; MODEL_FORCED=1; shift 2 ;;
+    --backend) BACKEND="$2"; BACKEND_FORCED=1; shift 2 ;;
+    --json)    WANT_JSON=1; shift ;;
+    --search)  WANT_SEARCH=1; shift ;;
+    -h|--help)
+      sed -n '2,50p' "$0"
+      exit 0
+      ;;
+    *) PROMPT="${PROMPT}${PROMPT:+ }$1"; shift ;;
+  esac
+done
+
+if [[ -z "$PROMPT" && ! -t 0 ]]; then
+  PROMPT="$(cat)"
+fi
+
+if [[ -z "$PROMPT" ]]; then
+  echo "ask-gemini: no prompt provided" >&2
+  exit 2
+fi
+
+# Model resolution is api-backend-only. Antigravity CLI print mode has no
+# model flag at all — `agy -p` always uses the account default. So API_MODEL
+# below governs only run_api; run_cli ignores --model entirely (a warning is
+# emitted there if the caller forced one).
+#
+# There is NO `pro` alias: the api free tier returns limit:0 for every
+# pro-class model. `--model pro` is rejected here with a pointer to --backend
+# cli rather than being silently sent to the API to 429 forever.
+case "$MODEL_ALIAS" in
+  flash) API_MODEL="gemini-3.5-flash" ;;
+  pro)
+    echo "ask-gemini: 'pro' is not available on the api backend — the free" \
+         "tier serves no pro-class model (limit:0). Use --backend cli for a" \
+         "larger model, or --model flash." >&2
+    exit 2 ;;
+  *)     API_MODEL="$MODEL_ALIAS" ;;
+esac
+
+# Append one structured line per call attempt. Never fails the script.
+log_call() {
+  local backend="$1" model="$2" status="$3"
+  mkdir -p "$(dirname "$LOGFILE")" 2>/dev/null || return 0
+  printf '%s\t%s\t%s\t%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$backend" "$model" "$status" \
+    >> "$LOGFILE" 2>/dev/null || true
+}
+
+resolve_api_key() {
+  if [[ -n "${GEMINI_API_KEY:-}" ]]; then
+    printf '%s' "$GEMINI_API_KEY"
+    return 0
+  fi
+  if [[ -r "$KEYFILE" ]]; then
+    tr -d '\n\r' < "$KEYFILE"
+    return 0
+  fi
+  return 1
+}
+
+if [[ -z "$BACKEND" ]]; then
+  if [[ -n "${ASK_GEMINI_BACKEND:-}" ]]; then
+    BACKEND="$ASK_GEMINI_BACKEND"
+  elif command -v agy >/dev/null 2>&1; then
+    # cli is the default: agy has Google Search grounding on by default and a
+    # separate quota pool from the rate-limited api free tier. The api backend
+    # is the fallback (and is faster for plain prompts — force it with
+    # --backend api when latency matters more than grounding).
+    BACKEND="cli"
+  elif resolve_api_key >/dev/null 2>&1; then
+    BACKEND="api"
+  else
+    BACKEND="cli"
+  fi
+fi
+
+if (( WANT_SEARCH )); then
+  PROMPT="Use Google Search grounding to answer this with current information. Cite sources inline.
+
+${PROMPT}"
+fi
+
+if (( WANT_JSON )); then
+  PROMPT="${PROMPT}
+
+Respond with a single JSON object. No prose outside the JSON."
+fi
+
+# --- api backend -----------------------------------------------------------
+# Returns: 0 = answer on stdout; 1 = hard error (printed); 2 = transient
+# exhaustion (5xx/429 after retries) — caller may fall back to cli.
+run_api() {
+  local key endpoint req_body resp http body
+  key="$(resolve_api_key)" || {
+    echo "ask-gemini: --backend api requested but no key found." >&2
+    echo "  Set GEMINI_API_KEY env var, or write the key to: $KEYFILE" >&2
+    echo "  Mint a free key at: https://aistudio.google.com/apikey" >&2
+    return 1
+  }
+  endpoint="https://generativelanguage.googleapis.com/v1beta/models/${API_MODEL}:generateContent"
+  if (( WANT_SEARCH )); then
+    req_body=$(jq -n --arg p "$PROMPT" '{contents:[{parts:[{text:$p}]}], tools:[{google_search:{}}]}')
+  else
+    req_body=$(jq -n --arg p "$PROMPT" '{contents:[{parts:[{text:$p}]}]}')
+  fi
+
+  # Retry transient failures: 429 (rate), 500/503 (server). Up to 3 attempts.
+  # The wait between attempts is server-driven for 429s: a quota 429 carries a
+  # RetryInfo.retryDelay (e.g. "12s") that is the *real* time to the next open
+  # window. A fixed short backoff (the old 0/2/5s) gives up before that window
+  # opens. We parse retryDelay and honour it, capped so one slow call can't
+  # stall the wrapper indefinitely. 5xx/000 have no retryDelay → fixed 2s/5s.
+  local max_attempts=3 attempt=0
+  local wait_s=0
+  while (( attempt < max_attempts )); do
+    (( attempt++ ))
+    [[ $wait_s -gt 0 ]] && sleep "$wait_s"
+    # Body + trailing HTTP code on its own line.
+    resp=$(curl -sS -m 90 -w $'\n%{http_code}' -X POST "${endpoint}?key=${key}" \
+      -H 'Content-Type: application/json' \
+      -d "$req_body" 2>/dev/null) || { resp=$'\n000'; }
+    http="${resp##*$'\n'}"
+    body="${resp%$'\n'*}"
+    log_call api "$API_MODEL" "$http"
+
+    case "$http" in
+      200)
+        echo "$body" | jq -r '.candidates[0].content.parts[]?.text // empty' \
+          | awk 'NF || prev{print; prev=NF}'
+        return 0 ;;
+      429)
+        # Honour server retryDelay if present and sane; cap at 30s. A limit:0
+        # quota (no usable quota at all) reports retryDelay too, but retrying
+        # never helps — detect it and stop immediately.
+        if echo "$body" | grep -q '"limit": 0\|limit: 0'; then
+          echo "ask-gemini (api): HTTP 429 — quota limit is 0 for $API_MODEL" \
+               "(model not served on this key's tier). Not retrying." >&2
+          return 2
+        fi
+        wait_s=$(echo "$body" \
+          | jq -r '[.error.details[]?|select(."@type"|test("RetryInfo"))|.retryDelay]|first // empty' 2>/dev/null \
+          | tr -dc '0-9')
+        [[ -z "$wait_s" ]] && wait_s=5
+        (( wait_s > 30 )) && wait_s=30
+        (( wait_s < 1 ))  && wait_s=2
+        continue ;;
+      500|503|000)
+        # transient server-side — fixed escalating backoff, no retryDelay here
+        wait_s=$(( attempt * 3 ))
+        continue ;;
+      *)
+        # 4xx other than 429: permanent (bad key, bad model, bad request)
+        echo "ask-gemini (api): HTTP $http" >&2
+        echo "$body" | jq '.error' >&2 2>/dev/null || echo "$body" >&2
+        return 1 ;;
+    esac
+  done
+
+  echo "ask-gemini (api): transient failure (HTTP $http) after $max_attempts attempts" >&2
+  return 2
+}
+
+# --- cli backend -----------------------------------------------------------
+# Shells out to Antigravity CLI: `agy -p`. agy has a native --print-timeout,
+# which we pass — but we ALSO keep a pure-bash wall-clock watchdog as a hard
+# backstop, because an agentic run can still hang past its own timeout (stuck
+# tool call, network stall) and macOS ships no `timeout`/`gtimeout`.
+#
+# Design: agy runs as a plain backgrounded child (no `set -m` / process-group
+# kill — monitor mode routes signals to the wrapper's own `wait` and corrupts
+# the exit path). A watchdog kills agy by PID. A marker file — not exit-code
+# archaeology — is the source of truth for whether the watchdog fired. agy's
+# short-lived network children may briefly outlive the kill; they exit on their
+# own within seconds and never block the wrapper.
+# 90s default: agy is an agentic runtime (search grounding + tool calls), so
+# 45s produced frequent false timeouts on legitimate slow runs. Override with
+# ASK_GEMINI_CLI_TIMEOUT for a tighter or looser cap.
+CLI_TIMEOUT="${ASK_GEMINI_CLI_TIMEOUT:-90}"
+
+run_cli() {
+  local rc
+  # agy print mode has NO model flag — warn if the caller forced --model, since
+  # it is silently ignored here (it still works on the api backend).
+  if (( MODEL_FORCED )); then
+    echo "ask-gemini (cli): --model '$MODEL_ALIAS' ignored — Antigravity CLI" \
+         "print mode uses the account default model. Use --backend api for" \
+         "per-call model selection." >&2
+  fi
+
+  # --print-timeout: agy's own cap, set a hair above our watchdog so the bash
+  #   watchdog is the one that fires first (consistent exit path / logging).
+  # --dangerously-skip-permissions: auto-approve tool use. Safe here — we cd to
+  #   /tmp and pass a single prompt with no edit/exec intent; worst case is a
+  #   web fetch / search (which is the point — grounding is on by default).
+  local -a cli_args=(-p "$PROMPT"
+    --print-timeout "$(( CLI_TIMEOUT + 10 ))s"
+    --dangerously-skip-permissions)
+
+  local marker
+  marker="$(mktemp "${TMPDIR:-/tmp}/ask-gemini-timeout.XXXXXX")"
+  rm -f "$marker"   # presence means "watchdog fired"; mktemp pre-creates it
+
+  ( cd "${TMPDIR:-/tmp}" 2>/dev/null || cd /tmp
+    # stderr is NOT discarded — a real cli failure must surface, not vanish.
+    exec agy "${cli_args[@]}" ) &
+  local gpid=$!
+
+  # Watchdog: after CLI_TIMEOUT, mark + kill agy by PID. `kill -0` confirms
+  # the PID is still alive (and ours) before signalling, so a reaped PID is
+  # never targeted.
+  ( sleep "$CLI_TIMEOUT"
+    kill -0 "$gpid" 2>/dev/null || exit 0
+    : > "$marker"
+    kill -TERM "$gpid" 2>/dev/null
+    sleep 2
+    kill -KILL "$gpid" 2>/dev/null ) &
+  local wpid=$!
+
+  set +e
+  wait "$gpid" 2>/dev/null
+  rc=$?
+  set -e
+
+  # agy finished — stop the watchdog before it can enter its kill phase.
+  kill "$wpid" 2>/dev/null || true
+  wait "$wpid" 2>/dev/null || true
+
+  if [[ -e "$marker" ]]; then
+    rm -f "$marker"
+    echo "ask-gemini (cli): timed out after ${CLI_TIMEOUT}s — quota pool likely exhausted." >&2
+    log_call cli "agy:<account-default>" "timeout=${CLI_TIMEOUT}s"
+    return 124
+  fi
+  rm -f "$marker"
+  log_call cli "agy:<account-default>" "exit=$rc"
+  return $rc
+}
+
+case "$BACKEND" in
+  api)
+    set +e
+    run_api
+    rc=$?
+    set -e
+    # api exhausted (rc 2 = 5xx/429 after retries) → fall back to cli, unless
+    # the backend was explicitly forced.
+    if [[ $rc -eq 2 && $BACKEND_FORCED -eq 0 ]] && command -v agy >/dev/null 2>&1; then
+      echo "ask-gemini: api backend exhausted — falling back to cli backend (agy)." >&2
+      run_cli
+      exit $?
+    fi
+    exit $rc
+    ;;
+  cli)
+    set +e
+    run_cli
+    rc=$?
+    set -e
+    # cli failed (non-zero: timeout 124, agy error, etc.) → fall back to the
+    # api backend, unless the backend was explicitly forced. Needs a key.
+    if [[ $rc -ne 0 && $BACKEND_FORCED -eq 0 ]] && resolve_api_key >/dev/null 2>&1; then
+      echo "ask-gemini: cli backend failed (rc $rc) — falling back to api backend." >&2
+      run_api
+      exit $?
+    fi
+    exit $rc
+    ;;
+  *)
+    echo "ask-gemini: unknown backend '$BACKEND' (expected api|cli)" >&2
+    exit 2
+    ;;
+esac
