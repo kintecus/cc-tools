@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. For the user-facing project overview, commands, and installation, see [`README.md`](README.md).
 
 ## What this is
 
@@ -116,6 +116,7 @@ The daily-note skill and SessionStart hook require the Obsidian CLI (`/Applicati
 | `/prose-deslop` | "de-slop", "humanize", "make it sound like me" | Voice transformation with format-specific rules |
 | `/amazon-writing` | "finalize", "make it crisp", "no fluff" | Data-driven writing rigor |
 | `/daily-note` | "log this", "update daily note", "note that down" | Obsidian daily note read/append |
+| `/obsidian-vault` | "obsidian", "vault", "search vault", "read note", "look up in vault" | Read and navigate the Obsidian vault via the CLI: search, follow links, explore the knowledge graph. Read-only by default |
 | `/reflect` | "end of day", "wrap up day", "what did I do today" | Plan vs actual review, time tracking, memory updates |
 | `/pm-principles` | explicit invocation only | PM principles interview generator |
 | `/research` | "research X", "look up X", "find docs for", "compare X vs Y" | Web research with quick/deep modes |
