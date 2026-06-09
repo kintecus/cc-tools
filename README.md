@@ -3,10 +3,10 @@
 > [!TIP]
 > ✨ ***A personal productivity toolkit that lives inside Claude Code.***
 
-Eighteen slash commands, an agent, hooks, and an image MCP server that turn Claude Code into a daily driver: transform writing into your own voice, run an Obsidian daily-note and reflection loop, enforce fresh-context plan review, mine your sessions for weekly retros and billable hours, and more. Built for a solo developer who works out of the terminal and an Obsidian vault, on macOS. If you live in Claude Code and want it wired into your notes, calendar, and writing, this is for you.
+Eighteen slash commands, hooks, and an image MCP server that turn Claude Code into a daily driver: transform writing into your own voice, run an Obsidian daily-note and reflection loop, enforce fresh-context plan review, mine your sessions for weekly retros and billable hours, hold a build to a senior engineering-partner bar, and more. Built for a solo developer who works out of the terminal and an Obsidian vault, on macOS. If you live in Claude Code and want it wired into your notes, calendar, and writing, this is for you.
 
 > [!NOTE]
-> [📦 Installation](#installation) · [🔧 Setup](#setup) · [⚡ Commands](#commands) · [🤖 Agent](#agent) · [🖼️ Image MCP](#image-mcp) · [⚙️ Plan-review hooks](#hooks) · [📋 References](#references)
+> [📦 Installation](#installation) · [🔧 Setup](#setup) · [⚡ Commands](#commands) · [🖼️ Image MCP](#image-mcp) · [⚙️ Plan-review hooks](#hooks) · [📋 References](#references)
 
 ## 🎬 Demo <a name="demo"></a>
 
@@ -82,10 +82,8 @@ export GEMINI_API_KEY="your-key-from-aistudio.google.com/apikey"
 - **`/yt-transcript`** - Search, quote, and summarize a YouTube video by its caption track. Pulls captions (not the video) via yt-dlp, cleans and dedupes, then greps the text - finding spoken content plain web search can't see. Prefers human captions, warns on auto-generated. Bundled script. Requires `yt-dlp`.
 - **`/horizon`** - Long-horizon retrospective over Claude Code sessions. v1 = weekly: cheap Haiku per-day summaries fan out in parallel, then Sonnet (or Opus with `--deep`) synthesizes themes / shipped vs stalled / tangents / decisions / open loops. Includes a **Timesheet** of defensible per-project active time for hourly billing, computed deterministically by `horizon-timesheet.py` (`--no-timesheet` to skip; standalone with `--project` / `--format csv`). Explicit-only.
 - **`/harvest-memory`** - Promote cross-project facts from per-project auto-memory stores into a curated global memory store (`~/.claude/global-memory/`) that loads into every session via `@import`. Discovers stores, finds facts touching 2+ projects, dedups, and proposes a diff - writes nothing without confirmation. Explicit-only.
-
-## 🤖 Agent <a name="agent"></a>
-
-- **`commit`** - Git committer invoked proactively on commits. Produces conventional commits with user-facing impact framing.
+- **`/commit`** - Git committer invoked proactively on commits. Produces conventional commits with user-facing impact framing.
+- **`/build-partner`** - A senior engineering-partner persona for building: less-but-better, boring-tech-wins, YAGNI, vertical-slice-first. Owns architecture, the data model, code structure, and restraint; pushes back on speculative abstractions; defers the visual layer to the `frontend-design` skill when present. Explicit-only.
 
 ## 🖼️ Image MCP <a name="image-mcp"></a>
 
