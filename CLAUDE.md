@@ -31,7 +31,7 @@ Follows the [tribe-coding plugin conventions](https://github.com/tribe-coding/cl
 hooks/
   hooks.json            # SessionStart + plan-review gate hook definitions
 scripts/
-  inject-rules.sh       # SessionStart: plan-review rule + today's Obsidian daily note
+  inject-rules.sh       # SessionStart: plan-review rule + effort-estimate rule + today's Obsidian daily note
   plan-review-checkpoint.sh  # PostToolUse(ExitPlanMode): checkpoint reminder + sets pending-review marker
   plan-review-gate.sh   # PreToolUse(edit tools): "ask" prompt before first edit while marker exists
   plan-review-clear.sh  # PostToolUse(edit tools): clears marker after an edit
@@ -84,7 +84,7 @@ inside the command dir. The skill invokes it via
 - **SKILL.md frontmatter**: every skill needs `name` and `description` in YAML frontmatter per [agentskills.io spec](https://agentskills.io/specification)
 - **Path references**: use `${CLAUDE_PLUGIN_ROOT}` for cross-skill references, never hardcoded paths
 - **Hook scripts**: use `${CLAUDE_PLUGIN_ROOT}` in hooks.json, with `PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"` fallback in scripts
-- **SessionStart output**: keep under 300 tokens. The daily note injection is non-deterministic (content changes during day) so it won't benefit from API prefix caching
+- **SessionStart output**: the two static rule blocks (plan-review, effort-estimate) are deterministic and benefit from API prefix caching, so keep each terse but they are not the token-budget constraint. The 300-token target is about the non-deterministic **daily-note** injection (content changes during the day, so it won't cache) — that is the part to keep lean
 - **No `skills/` directory**: all skills are user-invoked commands under `commands/`, so `plugin.json` points `commands` at `./commands/` and leaves `skills` empty (`[]`)
 
 ## MCP server: gemini-image
@@ -125,7 +125,7 @@ The daily-note skill and SessionStart hook require the Obsidian CLI (`/Applicati
 | `/pr` | "create PR", "open PR", "push and create PR" | Structured PR with user-facing impact |
 | `/calendar` | "calendar", "schedule", "what's on today", "add to calendar", "create event", "schedule recurring" | Read Apple Calendar via icalBuddy; create/delete events (one-off + recurring) via AppleScript |
 | `/reminders` | "reminders", "what's due", "overdue", "remind me to", "add a reminder", "mark X done", "clean up reminders", "reconcile reminders" | Read Apple Reminders via icalBuddy (fast, read-only); create reminders, mark complete, and run a guided reconcile/cleanup pass via AppleScript. Read-safe default; writes confirmed. Documents the Reminders AppleScript `with timeout` requirement and the timed-out-write-may-have-succeeded gotcha |
-| `/review-plan` | "review plan", "critique plan", after plan mode | Fresh-context subagent critiques an implementation plan before any code |
+| `/review-plan` | "review plan", "critique plan", after plan mode | Fresh-context subagent critiques an implementation plan before any code; re-estimates the effort block on the revised plan |
 | `/clippings-digest` | "digest clippings", "review clippings", "what have I clipped" | Digest unreviewed Obsidian clippings to the daily note + a self-contained HTML editorial page in `~/clipping-summaries/` |
 | `/ask-gemini` | "ask gemini", "what does gemini think", research needing current data | Delegate a question to Google Gemini (Antigravity CLI default, AI Studio API fallback) and return the answer inline |
 | `/yt-transcript` | "what did X say in this video", "find the quote in this talk", "search/summarize this YouTube video" | Fetch a YouTube caption track via yt-dlp, clean/dedupe it, and search/quote/summarize spoken content that web search can't see. Bundled script |

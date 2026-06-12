@@ -44,6 +44,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/commands/review-plan/references/protocol.md` and fol
 
 - Show the findings table verbatim.
 - Revise the plan with the suggestions (CRITICAL/HIGH always; MEDIUM/LOW unless the user opts out).
+- Re-estimate the effort block for the revised plan (per the SessionStart effort-estimate rule) and append it — whether the revision changed scope, the original estimate was missing, or the reviewer flagged it. Don't carry the original estimate forward unchanged.
 - Present the revised plan and the verdict.
 - On a `RECONSIDER APPROACH` verdict → stop and ask the user how to proceed; do not implement.
 
