@@ -98,17 +98,45 @@ def project_label_from_cwd(cwd: str) -> str:
 
     Extended with the personal/ sub-project markers that horizon's coarser
     table folds into bare basenames, because billing wants them distinct.
+
+    pm-workspace is a multi-project root: a session launched from (or that cds
+    into) ``pm-workspace/projects/<name>`` is real work on that sub-project, not
+    generic "pm-workspace" time. The sub-project markers below MUST be ordered
+    before the bare ``/pm-workspace`` catch-all so the deeper path wins. They
+    fold into the same buckets as the corresponding build repos where one
+    exists (satori-ads strategy -> satori; movie-grants -> open-call), keep a
+    dedicated bucket where none does (yourown-coach -> yoc), and auto-split any
+    future sub-project under a ``pm/<name>`` label rather than silently lumping
+    it into the root. Bare pm-workspace (root, exercises/, .claude/skills/)
+    stays "pm-workspace".
     """
     if not cwd:
         return "unknown"
     cwd = cwd.rstrip("/")
+    # pm-workspace sub-projects — must precede the bare "/pm-workspace" marker.
+    pm_marker = "/pm-workspace/projects/"
+    if pm_marker in cwd:
+        sub = cwd.split(pm_marker, 1)[1].split("/", 1)[0]
+        pm_fold = {
+            "satori-ads": "satori",      # PM/strategy folds into the Satori total
+            "movie-grants": "open-call",  # Open Call codebase folds into open-call
+            "yourown-coach": "yoc",       # no build repo elsewhere — own bucket
+        }
+        if sub:
+            return pm_fold.get(sub, f"pm/{sub}")
+    # "Contains" markers, longest/most-specific first. A deep cwd
+    # (kintecus.github.io/static/fonts, client/open-call/db) must roll up to
+    # its parent project, not split off into a bare-basename bucket — so any
+    # multi-project root whose subdirs you cd into needs a marker here.
     for marker, label in [
         ("/satori/", "satori"),
+        ("/client/open-call", "open-call"),
         ("/client-project/", "client"),
         ("/personal/earshot", "earshot"),
         ("/personal/pidcast", "pidcast"),
         ("/personal/open-call", "open-call"),
         ("/personal/movie-grants", "movie-grants"),
+        ("/personal/kintecus.github.io", "kintecus.github.io"),
         ("/cc-tools", "cc-tools"),
         ("/puch", "puch"),
         ("/homelab", "homelab"),
@@ -117,6 +145,8 @@ def project_label_from_cwd(cwd: str) -> str:
         ("/music-agent", "music-agent"),
         ("/tribe-coding", "tribe-coding"),
         ("/job-hunt", "job-hunt"),
+        ("/vulcan-notify", "vulcan-notify"),
+        ("/retroscope", "retroscope"),
         ("/pm-workspace", "pm-workspace"),
         ("/dotfiles", "dotfiles"),
     ]:
@@ -133,17 +163,26 @@ def project_label_from_cwd(cwd: str) -> str:
 
 def session_cwd_and_timestamps(
     jsonl_path: str, start_utc: datetime, end_utc: datetime
-) -> tuple[str | None, list[datetime]]:
-    """Read a session file once: return its real cwd (from the first line that
-    carries one) and the in-window message timestamps.
+) -> tuple[str | None, list[tuple[datetime, str | None]]]:
+    """Read a session file once: return its first-seen cwd and the in-window
+    ``(timestamp, cwd)`` pairs, where each pair's cwd is the most recent cwd
+    seen at or before that message.
+
+    A single session is not pinned to one project: it can start at a repo root
+    and ``cd`` into ``projects/<sub>`` partway through. Each session line carries
+    a verbatim ``cwd`` field, so we carry the last-seen cwd forward per message
+    and let ``compute`` bill each inter-message gap to whatever sub-project was
+    current at that moment. The first-seen cwd is still returned for callers
+    that only need a coarse session label.
 
     The project DIR name (-Users-ostaps-code-foo-bar) is a lossy dash-encoding
     that cannot be reliably inverted — a literal hyphen in a path segment
-    (open-call, movie-grants) is indistinguishable from a path separator. Each
-    session line carries the verbatim ``cwd`` field, so we read that instead.
+    (open-call, movie-grants) is indistinguishable from a path separator — which
+    is why we read the verbatim ``cwd`` field instead.
     """
-    cwd: str | None = None
-    out: list[datetime] = []
+    first_cwd: str | None = None
+    cur_cwd: str | None = None
+    out: list[tuple[datetime, str | None]] = []
     try:
         with open(jsonl_path, encoding="utf-8") as f:
             for line in f:
@@ -154,8 +193,10 @@ def session_cwd_and_timestamps(
                     obj = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if cwd is None and obj.get("cwd"):
-                    cwd = obj["cwd"]
+                if obj.get("cwd"):
+                    cur_cwd = obj["cwd"]
+                    if first_cwd is None:
+                        first_cwd = cur_cwd
                 ts = obj.get("timestamp")
                 if not ts:
                     continue
@@ -166,11 +207,11 @@ def session_cwd_and_timestamps(
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
                 if start_utc <= dt < end_utc:
-                    out.append(dt)
+                    out.append((dt, cur_cwd))
     except OSError:
-        return cwd, []
-    out.sort()
-    return cwd, out
+        return first_cwd, []
+    out.sort(key=lambda p: p[0])
+    return first_cwd, out
 
 
 def merged_union_seconds(intervals: list[tuple[float, float]]) -> float:
@@ -198,22 +239,34 @@ def compute(start_utc: datetime, end_utc: datetime, cap_seconds: int,
     intervals = defaultdict(list)  # project -> [(epoch_start, epoch_end)] capped sub-intervals
 
     for jf in glob.glob(os.path.join(projects_dir, "*", "*.jsonl")):
-        cwd, ts = session_cwd_and_timestamps(jf, start_utc, end_utc)
-        if not ts:
+        _first_cwd, pairs = session_cwd_and_timestamps(jf, start_utc, end_utc)
+        if not pairs:
             continue
-        label = project_label_from_cwd(cwd or "")
-        if only_project and label != only_project:
-            continue
-        sessions[label].add(jf)
-        msgs[label] += len(ts)
-        for a, b in zip(ts, ts[1:]):
+        # A session can span multiple sub-projects (root -> projects/<sub>).
+        # Bill each inter-message gap to the label of the cwd active at the gap's
+        # START, and count a message toward whatever label was current for it.
+        for (a, cwd_a), (b, _cwd_b) in zip(pairs, pairs[1:]):
+            label = project_label_from_cwd(cwd_a or "")
+            if only_project and label != only_project:
+                continue
             gap = (b - a).total_seconds()
             capped = min(gap, cap_seconds)
             active[label] += capped
             intervals[label].append((a.timestamp(), a.timestamp() + capped))
+            sessions[label].add(jf)
+            msgs[label] += 1
+        # The final message has no following gap; still attribute it for the
+        # session/message counts so a one-message tail isn't dropped.
+        _last_ts, last_cwd = pairs[-1]
+        last_label = project_label_from_cwd(last_cwd or "")
+        if not (only_project and last_label != only_project):
+            sessions[last_label].add(jf)
+            msgs[last_label] += 1
 
     rows = []
-    for label in active:
+    # Union of all label keys: a single-message session contributes to
+    # sessions/msgs via the tail block without ever appearing in `active`.
+    for label in set(active) | set(sessions) | set(msgs):
         rows.append({
             "project": label,
             "active_h": round(active[label] / 3600, 2),
