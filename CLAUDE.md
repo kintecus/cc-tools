@@ -36,9 +36,6 @@ scripts/
   plan-review-gate.sh   # PreToolUse(edit tools): "ask" prompt before first edit while marker exists
   plan-review-clear.sh  # PostToolUse(edit tools): clears marker after an edit
   plan-review-marker.sh # shared helper: marker path + session_id parse (sourced by the three above)
-mcp/
-  gemini_image.py       # Gemini image generation MCP server
-.mcp.json               # MCP server registration
 commands/
   commit/               # git committer (conventional commits + impact framing)
     SKILL.md
@@ -86,15 +83,6 @@ inside the command dir. The skill invokes it via
 - **Hook scripts**: use `${CLAUDE_PLUGIN_ROOT}` in hooks.json, with `PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"` fallback in scripts
 - **SessionStart output**: the two static rule blocks (plan-review, effort-estimate) are deterministic and benefit from API prefix caching, so keep each terse but they are not the token-budget constraint. The 300-token target is about the non-deterministic **daily-note** injection (content changes during the day, so it won't cache) — that is the part to keep lean
 - **No `skills/` directory**: all skills are user-invoked commands under `commands/`, so `plugin.json` points `commands` at `./commands/` and leaves `skills` empty (`[]`)
-
-## MCP server: gemini-image
-
-The plugin includes an MCP server for Gemini (nanobanana) image generation. Registered via `.mcp.json`, started automatically when the plugin is enabled.
-
-- **Tools**: `generate_image` (text-to-image), `edit_image` (image+text-to-image)
-- **Env var**: `GEMINI_API_KEY` (from Google AI Studio)
-- **Output**: saves PNG to `~/Downloads/gemini_{timestamp}.png` by default
-- **Runtime**: `uv run` with inline PEP 723 deps (mcp, httpx) - no install step
 
 ## Plan-review gate (deterministic enforcement)
 
