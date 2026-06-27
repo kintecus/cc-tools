@@ -27,7 +27,7 @@ fi
 # Update cache
 rm -rf "$CACHE_DIR"
 mkdir -p "$CACHE_DIR"
-cp -r "$REPO_ROOT"/{.claude-plugin,.mcp.json,commands,hooks,mcp,scripts,CLAUDE.md,README.md} "$CACHE_DIR/"
+cp -r "$REPO_ROOT"/{.claude-plugin,commands,hooks,scripts,CLAUDE.md,README.md} "$CACHE_DIR/"
 
 # Update version in installed_plugins.json
 SHA=$(git -C "$REPO_ROOT" rev-parse HEAD)
