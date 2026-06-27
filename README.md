@@ -6,7 +6,7 @@
 Eighteen slash commands, hooks, and an image MCP server that turn Claude Code into a daily driver: transform writing into your own voice, run an Obsidian daily-note and reflection loop, enforce fresh-context plan review, mine your sessions for weekly retros and billable hours, hold a build to a senior engineering-partner bar, and more. Built for a solo developer who works out of the terminal and an Obsidian vault, on macOS. If you live in Claude Code and want it wired into your notes, calendar, and writing, this is for you.
 
 > [!NOTE]
-> [📦 Installation](#installation) · [🔧 Setup](#setup) · [⚡ Commands](#commands) · [🖼️ Image MCP](#image-mcp) · [⚙️ Plan-review hooks](#hooks) · [📋 References](#references)
+> [📦 Installation](#installation) · [🔧 Setup](#setup) · [⚡ Commands](#commands) · [⚙️ Plan-review hooks](#hooks) · [📋 References](#references)
 
 ## 🎬 Demo <a name="demo"></a>
 
@@ -30,7 +30,7 @@ Verdict: REVISE (major) — applying CRITICAL + HIGH, then re-presenting the pla
 
 ## 📦 Installation <a name="installation"></a>
 
-**Requirements:** Claude Code. Optional, per-feature: Obsidian v1.12+ (daily-note, reflect, obsidian-vault), the [retroscope](https://github.com/kintecus/retroscope) plugin (required for `/horizon`, optional for `/reflect`), `uv` (image MCP), `yt-dlp` (`/yt-transcript`), the `agy` Antigravity CLI and/or a `GEMINI_API_KEY` (`/ask-gemini`, image MCP). Each command degrades gracefully when its optional dependency is absent. macOS only for `/calendar` and `/reminders`.
+**Requirements:** Claude Code. Optional, per-feature: Obsidian v1.12+ (daily-note, reflect, obsidian-vault), the [retroscope](https://github.com/kintecus/retroscope) plugin (required for `/horizon`, optional for `/reflect`), `yt-dlp` (`/yt-transcript`), the `agy` Antigravity CLI and/or a `GEMINI_API_KEY` (`/ask-gemini`). Each command degrades gracefully when its optional dependency is absent. macOS only for `/calendar` and `/reminders`.
 
 ```bash
 # Clone the marketplace
@@ -51,16 +51,16 @@ Restart Claude Code to load the plugin.
 
 ## 🔧 Setup <a name="setup"></a>
 
-Most commands work with zero configuration. Two integrations read an API key from the environment:
+Most commands work with zero configuration. One integration reads an API key from the environment:
 
 ```bash
-# Add to ~/.zshenv — used by the image MCP server and the /ask-gemini API fallback
+# Add to ~/.zshenv — used by the /ask-gemini API fallback
 export GEMINI_API_KEY="your-key-from-aistudio.google.com/apikey"
 ```
 
 | Variable | Used by | Source |
 |---|---|---|
-| `GEMINI_API_KEY` | `gemini-image` MCP server; `/ask-gemini` (API fallback) | [Google AI Studio](https://aistudio.google.com/apikey) |
+| `GEMINI_API_KEY` | `/ask-gemini` (API fallback) | [Google AI Studio](https://aistudio.google.com/apikey) |
 
 `/ask-gemini` prefers the `agy` Antigravity CLI (Google Search grounding) when present and only falls back to the API key, so the key is optional if you have `agy`.
 
@@ -84,15 +84,6 @@ export GEMINI_API_KEY="your-key-from-aistudio.google.com/apikey"
 - **`/harvest-memory`** - Promote cross-project facts from per-project auto-memory stores into a curated global memory store (`~/.claude/global-memory/`) that loads into every session via `@import`. Discovers stores, finds facts touching 2+ projects, dedups, and proposes a diff - writes nothing without confirmation. Explicit-only.
 - **`/commit`** - Git committer invoked proactively on commits. Produces conventional commits with user-facing impact framing.
 - **`/build-partner`** - A senior engineering-partner persona for building: less-but-better, boring-tech-wins, YAGNI, vertical-slice-first. Owns architecture, the data model, code structure, and restraint; pushes back on speculative abstractions; defers the visual layer to the `frontend-design` skill when present. Explicit-only.
-
-## 🖼️ Image MCP <a name="image-mcp"></a>
-
-`gemini-image` generates and edits images using Google's Gemini API (nanobanana). Requires `GEMINI_API_KEY` (see [Setup](#setup)) and `uv`.
-
-- **`generate_image`** - text-to-image. Params: `prompt`, optional `output_path`, optional `aspect_ratio`.
-- **`edit_image`** - modify an existing image with a text prompt. Params: `prompt`, `source_image_path`, optional `output_path`.
-
-Images save to `~/Downloads/gemini_{timestamp}.png` by default.
 
 ## ⚙️ Plan-review hooks <a name="hooks"></a>
 
