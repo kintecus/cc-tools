@@ -62,6 +62,10 @@ commands/
     SKILL.md
     templates/          # digest-page.html (frozen design system)
     references/         # component-kit.md (bespoke component vocabulary)
+  podcast-digest/       # pidcast transcript digest + HTML editorial page
+    SKILL.md
+    templates/          # digest-page.html (frozen design system, podcast variant)
+    references/         # component-kit.md (bespoke component vocabulary)
   ask-gemini/           # delegate a question to Google Gemini
     SKILL.md
     ask-gemini          # the wrapper script (executable; bundled with the skill)
@@ -115,6 +119,7 @@ The daily-note skill and SessionStart hook require the Obsidian CLI (`/Applicati
 | `/reminders` | "reminders", "what's due", "overdue", "remind me to", "add a reminder", "mark X done", "clean up reminders", "reconcile reminders" | Read Apple Reminders via icalBuddy (fast, read-only); create reminders, mark complete, and run a guided reconcile/cleanup pass via AppleScript. Read-safe default; writes confirmed. Documents the Reminders AppleScript `with timeout` requirement and the timed-out-write-may-have-succeeded gotcha |
 | `/review-plan` | "review plan", "critique plan", after plan mode | Fresh-context subagent critiques an implementation plan before any code; re-estimates the effort block on the revised plan |
 | `/clippings-digest` | "digest clippings", "review clippings", "what have I clipped" | Digest unreviewed Obsidian clippings to the daily note + a self-contained HTML editorial page in `~/clipping-summaries/` |
+| `/podcast-digest` | "podcast digest", "digest my podcasts", "summarize recent podcasts", "what have I listened to" | Editorial digest of recent `pidcast` podcast/YouTube transcripts. Resolves the transcripts dir via `pidcast info`, filters to genuine podcast/YT by front-matter `url` (skips meeting recordings, tests, prior digests, analysis side-files), fans out to parallel Haiku subagents, synthesizes a through-line, and writes an HTML editorial page + Markdown archive note into the Obsidian vault (`03 - RESOURCES/Podcasts` default, resolved via `obsidian-cli`). Windowed by recency (default 30d); never overwrites |
 | `/ask-gemini` | "ask gemini", "what does gemini think", research needing current data | Delegate a question to Google Gemini (Antigravity CLI default, AI Studio API fallback) and return the answer inline |
 | `/yt-transcript` | "what did X say in this video", "find the quote in this talk", "search/summarize this YouTube video" | Fetch a YouTube caption track via yt-dlp, clean/dedupe it, and search/quote/summarize spoken content that web search can't see. Bundled script |
 | `/horizon` | "weekly retro", "horizon week", "how was my week" (explicit-only) | Long-horizon retrospective. v1 = weekly: Haiku per-day summaries + Sonnet synthesis (Opus with `--deep`). Includes a deterministic Timesheet section (`horizon-timesheet.py`, Step 5c) for defensible per-project billable hours; `--no-timesheet` to skip. Writes to retroscope storage repo + mirrors to vault. |
