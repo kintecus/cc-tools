@@ -3,10 +3,10 @@
 > [!TIP]
 > ✨ ***A personal productivity toolkit that lives inside Claude Code.***
 
-Eighteen slash commands, hooks, and an image MCP server that turn Claude Code into a daily driver: transform writing into your own voice, run an Obsidian daily-note and reflection loop, enforce fresh-context plan review, mine your sessions for weekly retros and billable hours, hold a build to a senior engineering-partner bar, and more. Built for a solo developer who works out of the terminal and an Obsidian vault, on macOS. If you live in Claude Code and want it wired into your notes, calendar, and writing, this is for you.
+Twenty slash commands, hooks, and a compact statusline that turn Claude Code into a daily driver: transform writing into your own voice, run an Obsidian daily-note and reflection loop, enforce fresh-context plan review, mine your sessions for weekly retros and billable hours, hold a build to a senior engineering-partner bar, and more. Built for a solo developer who works out of the terminal and an Obsidian vault, on macOS. If you live in Claude Code and want it wired into your notes, calendar, and writing, this is for you.
 
 > [!NOTE]
-> [📦 Installation](#installation) · [🔧 Setup](#setup) · [⚡ Commands](#commands) · [⚙️ Plan-review hooks](#hooks) · [📋 References](#references)
+> [📦 Installation](#installation) · [🔧 Setup](#setup) · [⚡ Commands](#commands) · [⚙️ Plan-review hooks](#hooks) · [📊 Statusline](#statusline) · [📋 References](#references)
 
 ## 🎬 Demo <a name="demo"></a>
 
@@ -84,6 +84,7 @@ export GEMINI_API_KEY="your-key-from-aistudio.google.com/apikey"
 - **`/horizon`** - Long-horizon retrospective over Claude Code sessions. v1 = weekly: cheap Haiku per-day summaries fan out in parallel, then Sonnet (or Opus with `--deep`) synthesizes themes / shipped vs stalled / tangents / decisions / open loops. Includes a **Timesheet** of defensible per-project active time for hourly billing, computed deterministically by `horizon-timesheet.py` (`--no-timesheet` to skip; standalone with `--project` / `--format csv`). Explicit-only.
 - **`/harvest-memory`** - Promote cross-project facts from per-project auto-memory stores into a curated global memory store (`~/.claude/global-memory/`) that loads into every session via `@import`. Discovers stores, finds facts touching 2+ projects, dedups, and proposes a diff - writes nothing without confirmation. Explicit-only.
 - **`/commit`** - Git committer invoked proactively on commits. Produces conventional commits with user-facing impact framing.
+- **`/statusline`** - Configure, preview, or troubleshoot the bundled single-line statusline: 5h/7d rate limits, session cost, model, effort level, context %, 1M-context marker, repo, git branch, and open-PR badge. Everything comes from the payload Claude Code pipes in, so there are no network calls and no credential reads. Explicit-only.
 - **`/build-partner`** - A senior engineering-partner persona for building: less-but-better, boring-tech-wins, YAGNI, vertical-slice-first. Owns architecture, the data model, code structure, and restraint; pushes back on speculative abstractions; defers the visual layer to the `frontend-design` skill when present. Explicit-only.
 
 ## ⚙️ Plan-review hooks <a name="hooks"></a>
@@ -97,7 +98,49 @@ The plugin registers a layered plan-review enforcement system plus daily-note in
 
 **Resolving the block:** because exit 2 blocks the edit, the marker can't auto-clear, so the gate's stderr tells Claude to clear it explicitly - `/review-plan` on the review path, or `rm` the marker and retry on the decline path. This keeps the offer deterministic without an infinite block loop.
 
+## 📊 Statusline <a name="statusline"></a>
+
+A single-line statusline ships with the plugin:
+
+```
+5h 92% 50m !!  7d 22% ~5d  $0.42  Opus 5  xhigh  30%  1M  owner/repo  main*  #42
+```
+
+Every value except the git branch arrives in the JSON Claude Code pipes to the
+script on stdin, so it makes no network calls and reads no credentials. Values
+dim at low usage and brighten as they climb: yellow above 90%, red at 100%. `!!`
+warns, `XX` means exhausted. On narrow terminals segments are dropped in order -
+repo, session cost, effort - to leave room for system notifications.
+
+`effort` is hidden at `medium`, `1M` appears once the session passes 200k tokens,
+and the PR badge appears only when the branch has an open PR, coloured by review
+state. A render costs roughly 70 ms: one `jq` pass over the payload and one
+`git status -b` call for branch and dirty state together.
+
+The `SessionStart` hook keeps `~/.claude/statusline-tools.sh` in sync but never
+edits settings. To turn it on, point `~/.claude/settings.json` at it:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline-tools.sh"
+  }
+}
+```
+
+The deliberately non-standard filename leaves the conventional
+`~/.claude/statusline.sh` free, so other statusline plugins can stay installed
+without two `SessionStart` hooks racing to overwrite one path. Run `/statusline`
+to preview it, install it, or diagnose a blank statusline.
+
 ## 📋 References <a name="references"></a>
 
 - [`CLAUDE.md`](CLAUDE.md) - agent-facing instructions: plugin structure, conventions, and how to add a skill.
 - [`LICENSE`](LICENSE) - MIT.
+
+## 🙏 Credits <a name="credits"></a>
+
+`scripts/statusline.sh` is derived from the `statusline-compact` plugin in
+[Tribe-Coding/claude-plugins](https://github.com/Tribe-Coding/claude-plugins),
+MIT License, Copyright (c) 2025 Tribe Coding.

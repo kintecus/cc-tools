@@ -32,6 +32,8 @@ hooks/
   hooks.json            # SessionStart + plan-review gate hook definitions
 scripts/
   inject-rules.sh       # SessionStart: plan-review rule + effort-estimate rule + today's Obsidian daily note
+  statusline.sh         # the compact single-line statusline (reads the payload on stdin)
+  setup-statusline.sh   # SessionStart: syncs statusline.sh -> ~/.claude/statusline-tools.sh
   plan-review-checkpoint.sh  # PostToolUse(ExitPlanMode): checkpoint reminder + sets pending-review marker
   plan-review-gate.sh   # PreToolUse(edit tools): "ask" prompt before first edit while marker exists
   plan-review-clear.sh  # PostToolUse(edit tools): clears marker after an edit
@@ -72,6 +74,8 @@ commands/
   yt-transcript/        # search/quote/summarize a YouTube video by its captions
     SKILL.md
     yt-transcript       # the caption-fetch+clean script (executable; bundled)
+  statusline/           # configure/preview/troubleshoot the bundled statusline
+    SKILL.md
 ```
 
 Note: `commands/ask-gemini/` is the first skill that ships its own executable
@@ -99,6 +103,35 @@ The plan-review offer is enforced by a **session-keyed marker**, not just inject
 - **Session id**: the hook stdin `session_id` equals the `CLAUDE_CODE_SESSION_ID` env var available in Bash/skill context (verified — same value names the transcript jsonl). That equality is what lets the skill's clear match the gate's marker.
 - **Fail-open invariant**: only the marker-present branch exits non-zero. Gate and clear use `set -uo pipefail` (no `-e`) and swallow every error → a broken hook or missing marker exits 0 and never blocks a legitimate edit. The checkpoint likewise never lets the marker step abort its context emission. Preserve this when editing these scripts.
 
+## Statusline
+
+`scripts/statusline.sh` renders the single-line statusline. It is derived from
+`statusline-compact` in Tribe-Coding/claude-plugins (MIT, (c) 2025 Tribe Coding) -
+keep the attribution header when editing, and keep the credits note in README.md.
+
+- **Install target is `~/.claude/statusline-tools.sh`, not `~/.claude/statusline.sh`.**
+  This is deliberate and load-bearing. Other statusline plugins claim the
+  conventional path from their own `SessionStart` hook; two hooks copying
+  different scripts to one path race every session and the last one silently
+  wins. The distinct filename lets both plugins stay installed, with
+  `settings.json` deciding which renders. Do not "fix" this to the conventional name.
+- **The hook never edits `settings.json`.** `setup-statusline.sh` only syncs the
+  file. Turning the statusline on is a manual, explicit step, because
+  `statusLine` is a single global slot that another plugin may legitimately own.
+- **Every value except the git branch comes from the stdin payload.** No network
+  calls, no credential reads. Model-scoped weekly limits (`seven_day_opus`,
+  `seven_day_sonnet`) and overage credits (`extra_usage`) exist inside Claude Code
+  but are **not** projected into the statusline payload, so they cannot be shown
+  without reading an OAuth token from the keychain and calling an undocumented
+  endpoint on the render hot path. That tradeoff was rejected; tracked upstream as
+  anthropics/claude-code#82656.
+- **Two constraints when editing:** bash 3.2 (macOS `/bin/bash`) - no
+  `EPOCHSECONDS`, no `${x,,}`, no associative arrays. And a subprocess budget of
+  one `jq` pass plus one `git status -b` call, since this runs on every render.
+  Each segment sets a coloured string *and* a plain-text twin via `set_seg`; the
+  twin is what the width math reads, so a segment without one breaks progressive
+  hiding.
+
 ## Obsidian CLI dependency
 
 The daily-note skill and SessionStart hook require the Obsidian CLI (`/Applications/Obsidian.app/Contents/MacOS/obsidian`, v1.12+). Obsidian must be running. The hook fails silently if Obsidian is closed.
@@ -125,6 +158,7 @@ The daily-note skill and SessionStart hook require the Obsidian CLI (`/Applicati
 | `/horizon` | "weekly retro", "horizon week", "how was my week" (explicit-only) | Long-horizon retrospective. v1 = weekly: Haiku per-day summaries + Sonnet synthesis (Opus with `--deep`). Includes a deterministic Timesheet section (`horizon-timesheet.py`, Step 5c) for defensible per-project billable hours; `--no-timesheet` to skip. Writes to retroscope storage repo + mirrors to vault. |
 | `/harvest-memory` | explicit invocation only | Promote cross-project facts from per-project auto-memory stores into the global memory store (`~/.claude/global-memory/`, loaded everywhere via `@import`). Propose-then-confirm; writes nothing without approval. |
 | `/commit` | PROACTIVE on git commits | Conventional commits with user-facing impact framing |
+| `/statusline` | explicit invocation only | Configure, preview, or troubleshoot the bundled single-line statusline. Segments: 5h/7d limits, session cost, model, effort (hidden at `medium`), context %, 1M marker, repo, branch, open-PR badge. All from the stdin payload except the git branch - no network, no credentials. See the statusline section below. |
 | `/build-partner` | explicit invocation only | Senior engineering-partner persona for building: less-but-better, boring-tech-wins, YAGNI, vertical-slice-first. Owns architecture/data-model/restraint; defers the visual layer to `frontend-design`. |
 
 ## Adding a new skill
