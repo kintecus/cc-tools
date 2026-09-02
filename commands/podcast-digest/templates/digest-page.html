@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<!--
+  podcast-digest HTML template.
+
+  HOW TO USE (the skill fills this in, never hand-edited):
+  1. Replace every {{TOKEN}} with real content.
+  2. Clone the block between <!-- BEGIN SECTION --> and <!-- END SECTION -->
+     once per category. Inside it, clone the .dog card once per episode.
+  3. Inside a .dog card, clone the <li> in <ul class="tk"> once per takeaway
+     (2-4 per episode). Delete the <ul class="tk"> entirely if an episode has none.
+  4. Mark the overall star episode: add class "star" to its .dog and keep the
+     .starbadge span; remove the .starbadge span from every other card.
+  5. Clone the <!-- SOURCE ITEM --> <li> once per episode.
+  6. Delete all instructional comments (including this block) from the final file.
+  7. For bespoke components (players grid, timeline, chart, callout, blockquote,
+     bottomline), see references/component-kit.md - podcast batches usually have a
+     thesis, so these are in-play more often than for a clippings survey.
+
+  The <style> block below is the frozen design system. Do not modify it.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500;1,9..144,600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f1e8;
+    --paper: #fffdf7;
+    --ink: #1a1916;
+    --muted: #6f6a5e;
+    --faint: #9a958a;
+    --rule: #ddd6c5;
+    --accent: #2b50f4;
+    --accent-soft: #e5e9ff;
+    --highlight: #ffe48a;
+    --warn: #b45309;
+    --warn-soft: #fbeede;
+
+    --oai: #10a37f;     /* OpenAI green */
+    --ant: #d97757;     /* Anthropic clay */
+    --ggl: #4285f4;     /* Google blue */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(43,80,244,0.04), transparent 38%),
+      radial-gradient(circle at 88% 92%, rgba(217,119,87,0.05), transparent 42%);
+    color: var(--ink);
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 22px;
+    line-height: 1.6;
+    padding: 0 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 56px 0 110px;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 60px;
+  }
+  .logo {
+    background: var(--accent);
+    color: #fff;
+    font-family: "Fraunces", serif;
+    font-weight: 900;
+    font-size: 16px;
+    letter-spacing: 0.02em;
+    padding: 7px 13px 6px;
+    border-radius: 9px;
+    box-shadow: 3px 3px 0 rgba(43,80,244,0.18);
+  }
+  .masthead .from {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+
+  /* ---------- header ---------- */
+  .topic-tag {
+    display: inline-block;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    border-radius: 999px;
+    margin-bottom: 26px;
+  }
+
+  h1 {
+    font-family: "Fraunces", serif;
+    font-optical-sizing: 144;
+    font-size: 54px;
+    line-height: 1.04;
+    letter-spacing: -0.022em;
+    font-weight: 900;
+    margin-bottom: 22px;
+  }
+  h1 em {
+    font-style: italic;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .standfirst {
+    font-family: "Newsreader", serif;
+    font-size: 25px;
+    line-height: 1.48;
+    color: var(--muted);
+    margin-bottom: 32px;
+    font-weight: 400;
+  }
+
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-bottom: 30px;
+    border-bottom: 1.5px solid var(--rule);
+    margin-bottom: 44px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+  .byline {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .meta .sep { color: var(--rule); }
+
+  /* ---------- body ---------- */
+  p { margin-bottom: 22px; }
+  p .axkey {
+    font-family: "Fraunces", serif;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  p .axkey::after { content: " "; }
+
+  .lead {
+    font-size: 23px;
+    line-height: 1.5;
+  }
+  .lead::first-letter {
+    font-family: "Fraunces", serif;
+    font-weight: 900;
+    font-size: 82px;
+    float: left;
+    line-height: 0.78;
+    margin: 10px 13px 0 0;
+    color: var(--accent);
+  }
+
+  h2 {
+    font-family: "Fraunces", serif;
+    font-size: 33px;
+    line-height: 1.18;
+    letter-spacing: -0.018em;
+    font-weight: 700;
+    margin: 60px 0 8px;
+  }
+  .h2-kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 56px 0 -2px;
+  }
+  .h2-kicker + h2 { margin-top: 6px; }
+
+  h3 {
+    font-family: "Fraunces", serif;
+    font-size: 23px;
+    font-weight: 600;
+    line-height: 1.26;
+    letter-spacing: -0.01em;
+    margin: 0 0 10px;
+  }
+
+  mark {
+    background: linear-gradient(180deg, transparent 54%, var(--highlight) 54%);
+    padding: 0 2px;
+  }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1.5px solid var(--accent-soft);
+  }
+  a:hover { border-bottom-color: var(--accent); }
+
+  /* ---------- chart figure ---------- */
+  figure {
+    margin: 40px 0;
+    background: var(--paper);
+    border: 1.5px solid var(--rule);
+    border-radius: 18px;
+    padding: 30px 30px 24px;
+    box-shadow: 5px 6px 0 rgba(26,25,22,0.05);
+  }
+  figure .fig-kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 4px;
+  }
+  figure .fig-title {
+    font-family: "Fraunces", serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.22;
+    margin-bottom: 20px;
+  }
+  figcaption {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--rule);
+    font-family: "Newsreader", serif;
+    font-size: 17px;
+    font-style: italic;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .chart-svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 18px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.01em;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+  .ax-label { font-family: "IBM Plex Mono", monospace; font-size: 10px; fill: var(--faint); }
+  .val-label { font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600; }
+  .grid-line { stroke: var(--rule); stroke-width: 1; }
+  .grid-line.dash { stroke-dasharray: 3 3; }
+
+  /* ---------- episode cards ---------- */
+  .dog {
+    background: var(--paper);
+    border: 1.5px solid var(--rule);
+    border-radius: 16px;
+    padding: 26px 28px;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .dog .num {
+    position: absolute;
+    top: -14px; left: 24px;
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    width: 34px; height: 34px;
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: 9px;
+    font-family: "Fraunces", serif;
+    font-weight: 900;
+    font-size: 16px;
+  }
+  .dog.star .num { background: var(--accent); }
+  .dog.star { border-color: var(--accent); box-shadow: 4px 5px 0 rgba(43,80,244,0.10); }
+  .dog .starbadge {
+    position: absolute;
+    top: -12px; right: 22px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--accent);
+    color: #fff;
+    padding: 4px 9px;
+    border-radius: 6px;
+  }
+  .dog h3 { margin-top: 6px; }
+  .dog h3 em { color: var(--accent); }
+  .dog p { font-size: 20.5px; line-height: 1.55; }
+  .dog p:last-child { margin-bottom: 0; }
+  .dog ul.tk { list-style: none; margin: 6px 0 4px; padding: 0; }
+  .dog ul.tk li {
+    position: relative;
+    padding-left: 20px;
+    font-size: 18px;
+    line-height: 1.45;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .dog ul.tk li::before {
+    content: "→";
+    position: absolute;
+    left: 0; top: 0;
+    color: var(--accent);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 15px;
+  }
+  .dog .clip-meta {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--rule);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.02em;
+    color: var(--faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    align-items: baseline;
+  }
+  .dog .clip-meta .tags { text-transform: none; }
+  .dog .clip-meta a { font-size: 11.5px; }
+
+  /* ---------- pull quote ---------- */
+  blockquote {
+    margin: 44px 0;
+    padding: 6px 0 6px 26px;
+    border-left: 4px solid var(--accent);
+    font-family: "Fraunces", serif;
+    font-size: 28px;
+    line-height: 1.32;
+    letter-spacing: -0.015em;
+    font-weight: 500;
+    font-style: italic;
+  }
+  blockquote .attr {
+    display: block;
+    margin-top: 12px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  /* ---------- callout ---------- */
+  .callout {
+    background: var(--warn-soft);
+    border: 1.5px solid #efd3ad;
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 36px 0;
+  }
+  .callout .label {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--warn);
+    margin-bottom: 8px;
+  }
+  .callout p { margin-bottom: 0; font-size: 19px; line-height: 1.52; }
+
+  /* ---------- player verdict cards ---------- */
+  .players {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 28px 0 8px;
+  }
+  .player {
+    background: var(--paper);
+    border: 1.5px solid var(--rule);
+    border-radius: 16px;
+    padding: 24px 26px;
+    border-top: 5px solid var(--pc);
+  }
+  .player .pname {
+    font-family: "Fraunces", serif;
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 3px;
+  }
+  .player .pdot { width: 12px; height: 12px; border-radius: 50%; background: var(--pc); align-self: center; }
+  .player .ptag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 14px;
+  }
+  .player .prow {
+    display: flex; gap: 14px;
+    padding: 10px 0;
+    border-top: 1px dashed var(--rule);
+    font-size: 18.5px;
+    line-height: 1.45;
+  }
+  .player .prow:first-of-type { border-top: none; padding-top: 2px; }
+  .player .pk {
+    flex: 0 0 92px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-top: 4px;
+  }
+  .player .pv { flex: 1; }
+  .player .pv strong { font-weight: 600; }
+  .player .verdict {
+    margin-top: 14px;
+    font-family: "Newsreader", serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--ink);
+    background: var(--vc, var(--accent-soft));
+    border-radius: 9px;
+    padding: 12px 15px;
+    line-height: 1.45;
+  }
+
+  /* ---------- timeline ---------- */
+  .timeline { margin: 28px 0 8px; }
+  .tl-row {
+    display: flex;
+    gap: 22px;
+    padding: 24px 0;
+    border-top: 1.5px solid var(--rule);
+  }
+  .tl-row:last-child { border-bottom: 1.5px solid var(--rule); }
+  .tl-when {
+    flex: 0 0 120px;
+    font-family: "Fraunces", serif;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+  }
+  .tl-when small {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 400;
+    font-size: 11px;
+    color: var(--faint);
+    margin-top: 2px;
+  }
+  .tl-what { flex: 1; }
+  .tl-what p { margin-bottom: 0; font-size: 19px; line-height: 1.5; }
+  .tl-what .verdict {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border-radius: 6px;
+    margin-bottom: 9px;
+  }
+  .v-good { background: #dcefdc; color: #1f6b2e; }
+  .v-watch { background: var(--highlight); color: #8a6300; }
+
+  /* ---------- bottom line ---------- */
+  .bottomline {
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: 20px;
+    padding: 38px 36px;
+    margin: 50px 0 8px;
+    box-shadow: 7px 8px 0 rgba(26,25,22,0.12);
+  }
+  .bottomline .h2-kicker { color: #8b9bff; margin-top: 0; }
+  .bottomline h2 { color: var(--bg); margin-top: 6px; }
+  .bottomline p { color: #d8d3c5; font-size: 20.5px; line-height: 1.55; }
+  .bottomline p:last-child { margin-bottom: 0; }
+  .bottomline mark { background: linear-gradient(180deg, transparent 54%, var(--accent) 54%); color: #fff; }
+  .bottomline strong { color: #fff; }
+
+  /* ---------- sources ---------- */
+  .sources {
+    margin-top: 52px;
+    padding-top: 28px;
+    border-top: 1.5px solid var(--rule);
+  }
+  .sources h3 {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--faint);
+    margin-bottom: 14px;
+  }
+  .sources ul { list-style: none; }
+  .sources li {
+    font-family: "Newsreader", serif;
+    font-size: 17px;
+    padding: 6px 0;
+    color: var(--muted);
+  }
+
+  /* ---------- methodology / footer note ---------- */
+  .endnote {
+    margin-top: 40px;
+    padding: 22px 24px;
+    background: var(--paper);
+    border: 1.5px dashed var(--rule);
+    border-radius: 14px;
+    font-family: "Newsreader", serif;
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .endnote .label {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 8px;
+  }
+  .endnote p { margin-bottom: 12px; }
+  .endnote p:last-child { margin-bottom: 0; }
+
+  /* ---------- load animation ---------- */
+  .reveal { opacity: 0; transform: translateY(14px); animation: rise 0.7s cubic-bezier(0.2,0.7,0.2,1) forwards; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  .d1 { animation-delay: 0.05s; } .d2 { animation-delay: 0.13s; }
+  .d3 { animation-delay: 0.21s; } .d4 { animation-delay: 0.29s; }
+
+  /* chart bar grow */
+  @keyframes growBar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  .bar-grp rect { transform-box: fill-box; transform-origin: bottom; animation: growBar 0.9s cubic-bezier(0.3,0.8,0.3,1) backwards; }
+  @keyframes drawLine { to { stroke-dashoffset: 0; } }
+  .trend-line { stroke-dasharray: 620; stroke-dashoffset: 620; animation: drawLine 1.6s ease-out 0.3s forwards; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal, .bar-grp rect, .trend-line { animation: none; opacity: 1; transform: none; stroke-dashoffset: 0; }
+  }
+
+  @media (max-width: 600px) {
+    body { font-size: 20px; }
+    h1 { font-size: 39px; }
+    h2 { font-size: 28px; }
+    .lead { font-size: 21px; }
+    .standfirst { font-size: 22px; }
+    blockquote { font-size: 24px; }
+    .wrap { padding: 38px 0 70px; }
+    figure { padding: 22px 18px 20px; }
+    .players { grid-template-columns: 1fr; }
+    .tl-row { flex-direction: column; gap: 8px; }
+    .tl-when { flex-basis: auto; }
+    .player .prow { flex-direction: column; gap: 2px; }
+    .player .pk { padding-top: 0; }
+    .lead::first-letter { font-size: 66px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead reveal d1">
+    <span class="logo">PODCASTS</span>
+    <span class="from">The Podcast Digest &middot; {{DATE_RANGE}}</span>
+  </div>
+
+  <span class="topic-tag reveal d1">🎙️ {{WINDOW_LABEL}} &middot; {{EPISODE_COUNT}} episodes</span>
+
+  <h1 class="reveal d1">{{TITLE}}</h1>
+
+  <p class="standfirst reveal d2">{{STANDFIRST}}</p>
+
+  <div class="meta reveal d2">
+    <span class="byline">Pidcast Digest</span>
+    <span class="sep">·</span>
+    <span>{{GENERATED_DATE}}</span>
+    <span class="sep">·</span>
+    <span>{{READ_TIME}} min read</span>
+    <span class="sep">·</span>
+    <span>{{TOP_CATEGORIES}}</span>
+  </div>
+
+  <p class="lead reveal d3">{{LEAD_PARAGRAPH}}</p>
+
+  <!--
+    OPTIONAL: pull quote - elevate the single best line from the batch.
+    Almost always suits a podcast digest; use once, high up.
+    <blockquote class="reveal d1">{{BEST_QUOTE}}<span class="attr">{{SPEAKER}} &middot; {{SHOW}}</span></blockquote>
+  -->
+
+  <!-- BEGIN SECTION  (clone once per category) -->
+  <h2 class="h2-kicker reveal d1">{{SECTION_KICKER}}</h2>
+  <h2 class="reveal d1">{{SECTION_HEADING}}</h2>
+
+  <!-- clone the .dog card below once per episode in this category -->
+  <div class="dog reveal d1">
+    <span class="num">{{N}}</span>
+    <span class="starbadge">★ Star of the batch</span><!-- keep ONLY on the overall star; add class "star" to that card's div -->
+    <h3>{{EPISODE_TITLE}}</h3>
+    <p>{{EPISODE_SUMMARY}}</p>
+    <ul class="tk"><!-- 2-4 takeaways; delete the whole <ul> if none -->
+      <li>{{TAKEAWAY}}</li>
+    </ul>
+    <div class="clip-meta">
+      <span class="tags">{{SHOW}} · {{DURATION}}</span>
+      <a href="{{SOURCE_URL}}">{{SOURCE_DOMAIN}} ↗</a>
+    </div>
+  </div>
+  <!-- END SECTION -->
+
+  <!--
+    OPTIONAL bespoke components - see references/component-kit.md.
+    Podcast batches often carry a thesis, real benchmark numbers, a release
+    chronology, or 2-4 directly comparable subjects, so a players grid /
+    timeline / chart / callout / bottomline is frequently warranted. Never
+    fabricate data to fill a chart or a comparison row.
+  -->
+
+  <div class="sources reveal d2">
+    <h3>Sources — all {{EPISODE_COUNT}} episodes</h3>
+    <ul>
+      <!-- SOURCE ITEM  (clone once per episode) -->
+      <li><a href="{{SOURCE_URL}}">{{EPISODE_TITLE}} — {{SHOW}}</a></li>
+    </ul>
+  </div>
+
+  <div class="endnote reveal d2">
+    <span class="label">How this was made</span>
+    <p>{{ENDNOTE}}</p>
+  </div>
+
+</div>
+</body>
+</html>

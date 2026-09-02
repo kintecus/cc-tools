@@ -29,13 +29,9 @@ Follows the [tribe-coding plugin conventions](https://github.com/tribe-coding/cl
   plugin.json           # manifest (name, version, commands; skills is empty [])
   marketplace.json      # marketplace registration
 hooks/
-  hooks.json            # SessionStart + plan-review gate hook definitions
+  hooks.json            # SessionStart hook definition
 scripts/
-  inject-rules.sh       # SessionStart: plan-review rule + effort-estimate rule + today's Obsidian daily note
-  plan-review-checkpoint.sh  # PostToolUse(ExitPlanMode): checkpoint reminder + sets pending-review marker
-  plan-review-gate.sh   # PreToolUse(edit tools): "ask" prompt before first edit while marker exists
-  plan-review-clear.sh  # PostToolUse(edit tools): clears marker after an edit
-  plan-review-marker.sh # shared helper: marker path + session_id parse (sourced by the three above)
+  inject-rules.sh       # SessionStart: effort-estimate rule + today's Obsidian daily note
 commands/
   commit/               # git committer (conventional commits + impact framing)
     SKILL.md
@@ -55,12 +51,13 @@ commands/
     SKILL.md
   pm-principles/        # PM principles interview + generation
     SKILL.md
-  review-plan/          # fresh-context plan review
-    SKILL.md
-    references/         # protocol.md
   clippings-digest/     # Obsidian clippings digest + HTML editorial page
     SKILL.md
     templates/          # digest-page.html (frozen design system)
+    references/         # component-kit.md (bespoke component vocabulary)
+  podcast-digest/       # pidcast transcript digest + HTML editorial page
+    SKILL.md
+    templates/          # digest-page.html (frozen design system, podcast variant)
     references/         # component-kit.md (bespoke component vocabulary)
   ask-gemini/           # delegate a question to Google Gemini
     SKILL.md
@@ -81,19 +78,16 @@ inside the command dir. The skill invokes it via
 - **SKILL.md frontmatter**: every skill needs `name` and `description` in YAML frontmatter per [agentskills.io spec](https://agentskills.io/specification)
 - **Path references**: use `${CLAUDE_PLUGIN_ROOT}` for cross-skill references, never hardcoded paths
 - **Hook scripts**: use `${CLAUDE_PLUGIN_ROOT}` in hooks.json, with `PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"` fallback in scripts
-- **SessionStart output**: the two static rule blocks (plan-review, effort-estimate) are deterministic and benefit from API prefix caching, so keep each terse but they are not the token-budget constraint. The 300-token target is about the non-deterministic **daily-note** injection (content changes during the day, so it won't cache) — that is the part to keep lean
+- **SessionStart output**: the static effort-estimate rule block is deterministic and benefits from API prefix caching, so keep it terse but it is not the token-budget constraint. The 300-token target is about the non-deterministic **daily-note** injection (content changes during the day, so it won't cache) — that is the part to keep lean
 - **No `skills/` directory**: all skills are user-invoked commands under `commands/`, so `plugin.json` points `commands` at `./commands/` and leaves `skills` empty (`[]`)
 
-## Plan-review gate (deterministic enforcement)
+## Removed in 0.25.0: the plan-review gate
 
-The plan-review offer is enforced by a **session-keyed marker**, not just injected text — text reminders alone get rationalized past (notably: "auto-accept edits" misread as a review decline).
+The plugin used to own a layered plan-review enforcement system: a SessionStart rule, a `PostToolUse(ExitPlanMode)` checkpoint that set a session-keyed marker in `$TMPDIR`, a `PreToolUse` edit gate that hard-blocked the first post-plan edit with `exit 2`, a clear hook, and the `/review-plan` command with its `protocol.md`. All of it is gone as of 0.25.0.
 
-- **Marker**: `${TMPDIR:-/tmp}/cc-plan-review-pending-<session_id>`. Path + `session_id` parsing live in `scripts/plan-review-marker.sh`, sourced by all three hook scripts so the convention has a single source of truth.
-- **Lifecycle**: `plan-review-checkpoint.sh` (PostToolUse/ExitPlanMode) **sets** it → `plan-review-gate.sh` (PreToolUse/edit-tools) **hard-blocks the edit with `exit 2`** while it exists → the block is resolved by clearing the marker (`/review-plan` Step 0, or Claude `rm`s it on the decline path), re-armed by a new plan. `plan-review-clear.sh` (PostToolUse/edit-tools) also clears it after a successful edit, as a backstop.
-- **Why `exit 2`, not `permissionDecision: "ask"`**: on Claude Code 2.1.x an `ask` from a plugin hook is overridden by `permissions.allow` rules (the user allow-lists `Write/Edit(~/code/**)`, which every plan touches) and is unreliably honored anyway (issues #52822/#13339/#39344). **`exit 2` blocks before permission rules are evaluated**, so it overrides allow-rules — the only mechanism that reliably stops the edit. Verified empirically: the `ask` gate produced no prompt on 2.1.168; exit 2 is the replacement.
-- **Loop avoidance**: a blocked edit never reaches `plan-review-clear.sh`, so the marker can't auto-clear — it would block forever. The gate's **stderr instructs Claude to clear the marker explicitly** when the user resolves the block (run `/review-plan`, or `rm -f` the marker then retry). This is load-bearing: do not remove the clear instructions from the stderr.
-- **Session id**: the hook stdin `session_id` equals the `CLAUDE_CODE_SESSION_ID` env var available in Bash/skill context (verified — same value names the transcript jsonl). That equality is what lets the skill's clear match the gate's marker.
-- **Fail-open invariant**: only the marker-present branch exits non-zero. Gate and clear use `set -uo pipefail` (no `-e`) and swallow every error → a broken hook or missing marker exits 0 and never blocks a legitimate edit. The checkpoint likewise never lets the marker step abort its context emission. Preserve this when editing these scripts.
+**Why it was removed:** the enforcement half worked exactly as designed — the gate reliably blocked edits. What failed was the thing it was gating *for*. The protocol's Step 2 spawned a fresh-context reviewer via `Task(subagent_type: Plan)`, and after an upstream change to how Claude Code runs and reports subagents (backgrounded execution, final report no longer surfaced the same way; `Plan` repurposed as a first-party plan-*authoring* agent), reviewers began returning only a preamble with no findings. The gate had no fallback for "reviewer returned nothing", so a broken dependency turned into blocked sessions that could only be cleared by hand-`rm`ing the marker.
+
+**If you revive this**, two design lessons carry over: (1) never let an enforcement gate depend on a subagent contract you don't control without a fail-open timeout path, and (2) `exit 2` was the only mechanism that reliably blocked an edit — `permissionDecision: "ask"` from a plugin hook was overridden by `permissions.allow` rules on Claude Code 2.1.x (issues #52822/#13339/#39344). Full implementation is in git history at the 0.25.0 removal commit's parent.
 
 ## Obsidian CLI dependency
 
@@ -113,8 +107,8 @@ The daily-note skill and SessionStart hook require the Obsidian CLI (`/Applicati
 | `/pr` | "create PR", "open PR", "push and create PR" | Structured PR with user-facing impact |
 | `/calendar` | "calendar", "schedule", "what's on today", "add to calendar", "create event", "schedule recurring" | Read Apple Calendar via icalBuddy; create/delete events (one-off + recurring) via AppleScript |
 | `/reminders` | "reminders", "what's due", "overdue", "remind me to", "add a reminder", "mark X done", "clean up reminders", "reconcile reminders" | Read Apple Reminders via icalBuddy (fast, read-only); create reminders, mark complete, and run a guided reconcile/cleanup pass via AppleScript. Read-safe default; writes confirmed. Documents the Reminders AppleScript `with timeout` requirement and the timed-out-write-may-have-succeeded gotcha |
-| `/review-plan` | "review plan", "critique plan", after plan mode | Fresh-context subagent critiques an implementation plan before any code; re-estimates the effort block on the revised plan |
 | `/clippings-digest` | "digest clippings", "review clippings", "what have I clipped" | Digest unreviewed Obsidian clippings to the daily note + a self-contained HTML editorial page in `~/clipping-summaries/` |
+| `/podcast-digest` | "podcast digest", "digest my podcasts", "summarize recent podcasts", "what have I listened to" | Editorial digest of recent `pidcast` podcast/YouTube transcripts. Resolves the transcripts dir via `pidcast info`, filters to genuine podcast/YT by front-matter `url` (skips meeting recordings, tests, prior digests, analysis side-files), fans out to parallel Haiku subagents, synthesizes a through-line, and writes an HTML editorial page + Markdown archive note into the Obsidian vault (`03 - RESOURCES/Podcasts` default, resolved via `obsidian-cli`). Windowed by recency (default 30d); never overwrites |
 | `/ask-gemini` | "ask gemini", "what does gemini think", research needing current data | Delegate a question to Google Gemini (Antigravity CLI default, AI Studio API fallback) and return the answer inline |
 | `/yt-transcript` | "what did X say in this video", "find the quote in this talk", "search/summarize this YouTube video" | Fetch a YouTube caption track via yt-dlp, clean/dedupe it, and search/quote/summarize spoken content that web search can't see. Bundled script |
 | `/horizon` | "weekly retro", "horizon week", "how was my week" (explicit-only) | Long-horizon retrospective. v1 = weekly: Haiku per-day summaries + Sonnet synthesis (Opus with `--deep`). Includes a deterministic Timesheet section (`horizon-timesheet.py`, Step 5c) for defensible per-project billable hours; `--no-timesheet` to skip. Writes to retroscope storage repo + mirrors to vault. |
