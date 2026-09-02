@@ -3,30 +3,17 @@
 > [!TIP]
 > ✨ ***A personal productivity toolkit that lives inside Claude Code.***
 
-Eighteen slash commands, hooks, and an image MCP server that turn Claude Code into a daily driver: transform writing into your own voice, run an Obsidian daily-note and reflection loop, enforce fresh-context plan review, mine your sessions for weekly retros and billable hours, hold a build to a senior engineering-partner bar, and more. Built for a solo developer who works out of the terminal and an Obsidian vault, on macOS. If you live in Claude Code and want it wired into your notes, calendar, and writing, this is for you.
+Eighteen slash commands and hooks that turn Claude Code into a daily driver: transform writing into your own voice, run an Obsidian daily-note and reflection loop, mine your sessions for weekly retros and billable hours, hold a build to a senior engineering-partner bar, and more. Built for a solo developer who works out of the terminal and an Obsidian vault, on macOS. If you live in Claude Code and want it wired into your notes, calendar, and writing, this is for you.
 
 > [!NOTE]
-> [📦 Installation](#installation) · [🔧 Setup](#setup) · [⚡ Commands](#commands) · [⚙️ Plan-review hooks](#hooks) · [📋 References](#references)
+> [📦 Installation](#installation) · [🔧 Setup](#setup) · [⚡ Commands](#commands) · [⚙️ Hooks](#hooks) · [📋 References](#references)
 
 ## 🎬 Demo <a name="demo"></a>
 
 <!-- PLACEHOLDER DEMO — replace with real terminal/agent output before relying on this section.
      Per the playbook, demo output must never be invented; this block is a marked stand-in. -->
 
-> **⚠️ Placeholder — capture real output to replace this.** Run `/review-plan` (or `/prose-deslop`) in a live session and paste the actual exchange here.
-
-```text
-> /review-plan
-
-Reading the plan… spawning a fresh-context reviewer (it sees only the plan text).
-
-  CRITICAL  Branch deletion targets the wrong branch — the named branch is the
-            cleanup, not the leak.   → delete the other branch instead.
-  HIGH      Verification grep uses `rg -nE`; ripgrep has no -E flag, so the
-            check silently passes.   → use `-e` per pattern.
-
-Verdict: REVISE (major) — applying CRITICAL + HIGH, then re-presenting the plan.
-```
+> **⚠️ Placeholder — capture real output to replace this.** Run `/prose-deslop` (or any command below) in a live session and paste the actual exchange here. Do not invent the output.
 
 ## 📦 Installation <a name="installation"></a>
 
@@ -76,8 +63,8 @@ export GEMINI_API_KEY="your-key-from-aistudio.google.com/apikey"
 - **`/reminders`** - Read and write Apple Reminders (and synced iCloud/CalDAV). Reads via icalBuddy (fast, read-only); creates, completes, and runs a guided reconcile/cleanup pass via AppleScript. Read-safe default; writes confirmed, handling the AppleScript timeout and partial-write gotchas. macOS only.
 - **`/research`** - Web research with quick-lookup and deep modes.
 - **`/pr`** - Create a pull request from a structured template, with user-facing impact framing.
-- **`/review-plan`** - Spawn a fresh-context subagent to critique an implementation plan for gaps, blind spots, and ordering issues before any code; re-estimates the effort block on the revised plan. Also runs proactively after plan mode (see [hooks](#hooks)).
 - **`/clippings-digest`** - Digest unreviewed Obsidian web clippings: summarize by topic, append a Markdown digest to the daily note, render a self-contained HTML editorial page into `~/clipping-summaries/`.
+- **`/podcast-digest`** - Editorial digest of recent podcast/YouTube transcripts captured by `pidcast`: filter to genuine podcast/YT (skipping meeting recordings, tests, and prior digests), fan out to parallel Haiku subagents, synthesize a through-line, and write a self-contained HTML editorial page plus a Markdown archive note into your Obsidian vault. Windowed by recency (default last 30 days). Requires `pidcast`.
 - **`/ask-gemini`** - Delegate a research question to Google Gemini and return the answer inline. Defaults to the `agy` Antigravity CLI (Google Search grounding); falls back to the AI Studio API. Bundled wrapper script.
 - **`/yt-transcript`** - Search, quote, and summarize a YouTube video by its caption track. Pulls captions (not the video) via yt-dlp, cleans and dedupes, then greps the text - finding spoken content plain web search can't see. Prefers human captions, warns on auto-generated. Bundled script. Requires `yt-dlp`.
 - **`/horizon`** - Long-horizon retrospective over Claude Code sessions. v1 = weekly: cheap Haiku per-day summaries fan out in parallel, then Sonnet (or Opus with `--deep`) synthesizes themes / shipped vs stalled / tangents / decisions / open loops. Includes a **Timesheet** of defensible per-project active time for hourly billing, computed deterministically by `horizon-timesheet.py` (`--no-timesheet` to skip; standalone with `--project` / `--format csv`). Explicit-only.
@@ -85,16 +72,13 @@ export GEMINI_API_KEY="your-key-from-aistudio.google.com/apikey"
 - **`/commit`** - Git committer invoked proactively on commits. Produces conventional commits with user-facing impact framing.
 - **`/build-partner`** - A senior engineering-partner persona for building: less-but-better, boring-tech-wins, YAGNI, vertical-slice-first. Owns architecture, the data model, code structure, and restraint; pushes back on speculative abstractions; defers the visual layer to the `frontend-design` skill when present. Explicit-only.
 
-## ⚙️ Plan-review hooks <a name="hooks"></a>
+## ⚙️ Hooks <a name="hooks"></a>
 
-The plugin registers a layered plan-review enforcement system plus daily-note injection (`hooks/hooks.json`). The goal: make the fresh-context plan-review offer survive context loss and auto-accept-edits modes, deterministically rather than relying on the model to remember.
+The plugin registers one hook (`hooks/hooks.json`):
 
-- **`SessionStart`** - injects a **plan-review rule** (Claude proactively offers a fresh-context review after plan mode), an **effort-estimate rule** (every plan written in plan mode ends with a rough ~token-budget / ~cost / ~Claude-time / ~your-time block, scaled to the session model; best-effort, not gated), and **today's Obsidian daily note** for situational awareness. The daily-note part needs the Obsidian desktop app (v1.12+) running with CLI enabled; the rules are always injected.
-- **`PostToolUse` / `ExitPlanMode`** - on **every** acceptance mode (including "auto-accept edits"), injects a fresh **plan-review checkpoint** reminder and **sets a session-keyed pending-review marker** that arms the gate below. The reminder decouples the edit-approval mode from the review decision, so "auto-accept edits" is no longer misread as declining the review.
-- **`PreToolUse` / `Edit|Write|MultiEdit|NotebookEdit`** (the **deterministic gate**) - while the marker exists, the first code edit is **hard-blocked via exit code 2**. Exit 2 blocks *before* permission rules are evaluated, so it overrides `permissions.allow` rules and every non-prompting mode - the one mechanism that reliably stops the edit. (An earlier `permissionDecision: "ask"` was overridden by allow-rules and unreliably honored on Claude Code 2.1.x - see issues #52822/#13339/#39344.) Fails open: any error or missing marker exits 0 and never blocks.
-- **`PostToolUse` / `Edit|Write|MultiEdit|NotebookEdit`** - clears the marker after a successful edit (backstop for the decline-path retry). Also cleared by `/review-plan` (Step 0) and re-armed when a new plan is accepted. Markers are session-keyed under `$TMPDIR`, so concurrent sessions never cross-block and staleness clears on reboot.
+- **`SessionStart`** - injects an **effort-estimate rule** (every plan written in plan mode ends with a rough ~token-budget / ~cost / ~Claude-time / ~your-time block, scaled to the session model; best-effort, not gated) and **today's Obsidian daily note** for situational awareness. The daily-note part needs the Obsidian desktop app (v1.12+) running with CLI enabled; the rule is always injected.
 
-**Resolving the block:** because exit 2 blocks the edit, the marker can't auto-clear, so the gate's stderr tells Claude to clear it explicitly - `/review-plan` on the review path, or `rm` the marker and retry on the decline path. This keeps the offer deterministic without an infinite block loop.
+> **Removed in 0.25.0:** the plan-review enforcement system (`/review-plan`, the `ExitPlanMode` checkpoint hook, and the `PreToolUse` marker gate). It depended on spawning a fresh-context reviewer subagent, which stopped returning findings after an upstream change to how subagents run and report. See the [0.25.0 removal commit](https://github.com/kintecus/cc-tools/commits/main) for the full implementation if you want to revive it.
 
 ## 📋 References <a name="references"></a>
 
