@@ -31,7 +31,7 @@ Follows the [tribe-coding plugin conventions](https://github.com/tribe-coding/cl
 hooks/
   hooks.json            # SessionStart hook definition
 scripts/
-  inject-rules.sh       # SessionStart: effort-estimate rule + today's Obsidian daily note
+  inject-rules.sh       # SessionStart: effort-estimate rule
 commands/
   commit/               # git committer (conventional commits + impact framing)
     SKILL.md
@@ -78,7 +78,7 @@ inside the command dir. The skill invokes it via
 - **SKILL.md frontmatter**: every skill needs `name` and `description` in YAML frontmatter per [agentskills.io spec](https://agentskills.io/specification)
 - **Path references**: use `${CLAUDE_PLUGIN_ROOT}` for cross-skill references, never hardcoded paths
 - **Hook scripts**: use `${CLAUDE_PLUGIN_ROOT}` in hooks.json, with `PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"` fallback in scripts
-- **SessionStart output**: the static effort-estimate rule block is deterministic and benefits from API prefix caching, so keep it terse but it is not the token-budget constraint. The 300-token target is about the non-deterministic **daily-note** injection (content changes during the day, so it won't cache) — that is the part to keep lean
+- **SessionStart output**: the static effort-estimate rule block is deterministic and benefits from API prefix caching, so keep it terse but it is not the token-budget constraint. Do not add non-deterministic content (anything whose text changes during the day, e.g. the daily note that was injected until 0.26.0) — it breaks the prefix cache for every session
 - **No `skills/` directory**: all skills are user-invoked commands under `commands/`, so `plugin.json` points `commands` at `./commands/` and leaves `skills` empty (`[]`)
 
 ## Removed in 0.25.0: the plan-review gate
@@ -89,9 +89,13 @@ The plugin used to own a layered plan-review enforcement system: a SessionStart 
 
 **If you revive this**, two design lessons carry over: (1) never let an enforcement gate depend on a subagent contract you don't control without a fail-open timeout path, and (2) `exit 2` was the only mechanism that reliably blocked an edit — `permissionDecision: "ask"` from a plugin hook was overridden by `permissions.allow` rules on Claude Code 2.1.x (issues #52822/#13339/#39344). Full implementation is in git history at the 0.25.0 removal commit's parent.
 
+## Removed in 0.26.0: the SessionStart daily-note injection
+
+`inject-rules.sh` used to append today's Obsidian daily note (via `obsidian-cli read daily`, falling back to a direct read of the vault's `Journal/Daily/<date>.md`) to every session's context. Removed because it was the one non-deterministic part of the SessionStart payload — the note changes through the day, so it never hit the prompt prefix cache — and it pushed personal context into sessions that had nothing to do with it. `/daily-note` covers the on-demand case.
+
 ## Obsidian CLI dependency
 
-The daily-note skill and SessionStart hook require the Obsidian CLI (`/Applications/Obsidian.app/Contents/MacOS/obsidian`, v1.12+). Obsidian must be running. The hook fails silently if Obsidian is closed.
+The daily-note, obsidian-vault, and clippings-digest skills require the Obsidian CLI (`/Applications/Obsidian.app/Contents/MacOS/obsidian`, v1.12+). Obsidian must be running.
 
 ## Commands
 
