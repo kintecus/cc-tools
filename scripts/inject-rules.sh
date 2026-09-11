@@ -2,7 +2,6 @@
 set -euo pipefail
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-DAILY_DIR="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian Vault/Journal/Daily"
 
 # --- Effort estimate rules (always injected) ---
 # Single-quoted delimiter: no variables to interpolate, and the literal $ in the
@@ -32,29 +31,5 @@ Rules:
 - Sizing reference: trivial/single-file ~30-80k, ~min(s), ~5-10 min you. Medium feature ~150-400k, ~$5-24 on Opus, 10-30 min, ~20-40 min you. Large/cross-cutting 500k-1M+, 30-90 min+, 1h+ you — flag low confidence above this.
 ESTIMATE
 
-# --- Today's daily note (best effort; fail silently if Obsidian is unavailable) ---
-# Run in a subshell so early exits here do not abort the whole hook.
-(
-  export PATH="$HOME/.claude/bin:$PATH"
-  OUTPUT=$(obsidian-cli read daily 2>/dev/null) || true
-  # obsidian-cli prints "Error: ..." to stdout with exit 0 when the daily plugin
-  # is unavailable — treat that as no output so it falls back to a direct file read.
-  [[ "$OUTPUT" == Error:* ]] && OUTPUT=""
-
-  if [[ -z "$OUTPUT" ]]; then
-    TODAY=$(date +%Y-%m-%d)
-    DAILY_FILE="$DAILY_DIR/$TODAY.md"
-    [[ -f "$DAILY_FILE" ]] && OUTPUT=$(cat "$DAILY_FILE") || exit 0
-  fi
-
-  [[ -z "$OUTPUT" ]] && exit 0
-
-  TODAY=$(date "+%A, %B %d, %Y")
-
-  cat <<EOF
-
-## Today is $TODAY
-
-$OUTPUT
-EOF
-)
+# The daily note is no longer injected at SessionStart (removed in 0.26.0) — use
+# /daily-note to pull it in on demand.

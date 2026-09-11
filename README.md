@@ -76,7 +76,9 @@ export GEMINI_API_KEY="your-key-from-aistudio.google.com/apikey"
 
 The plugin registers one hook (`hooks/hooks.json`):
 
-- **`SessionStart`** - injects an **effort-estimate rule** (every plan written in plan mode ends with a rough ~token-budget / ~cost / ~Claude-time / ~your-time block, scaled to the session model; best-effort, not gated) and **today's Obsidian daily note** for situational awareness. The daily-note part needs the Obsidian desktop app (v1.12+) running with CLI enabled; the rule is always injected.
+- **`SessionStart`** - injects an **effort-estimate rule** (every plan written in plan mode ends with a rough ~token-budget / ~cost / ~Claude-time / ~your-time block, scaled to the session model; best-effort, not gated).
+
+> **Removed in 0.26.0:** the SessionStart injection of today's Obsidian daily note. It was non-deterministic (the note changes during the day, so it never hit the prompt prefix cache) and pulled personal context into every session whether or not the session had anything to do with it. Use `/daily-note` to read it on demand.
 
 > **Removed in 0.25.0:** the plan-review enforcement system (`/review-plan`, the `ExitPlanMode` checkpoint hook, and the `PreToolUse` marker gate). It depended on spawning a fresh-context reviewer subagent, which stopped returning findings after an upstream change to how subagents run and report. See the [0.25.0 removal commit](https://github.com/kintecus/cc-tools/commits/main) for the full implementation if you want to revive it.
 
