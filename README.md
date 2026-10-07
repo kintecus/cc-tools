@@ -59,7 +59,7 @@ export GEMINI_API_KEY="your-key-from-aistudio.google.com/apikey"
 - **`/obsidian-vault`** - Read and navigate your Obsidian vault via the CLI: search, follow links, explore the knowledge graph. Read-only by default.
 - **`/reflect`** - End-of-day review: compares daily-note plan vs actual git/session activity, tracks time per project with costs, appends a summary, updates auto-memory with durable insights.
 - **`/pm-principles`** - Structured interview to articulate your PM operating system. Generates a living PRINCIPLES.md.
-- **`/calendar`** - Read and write Apple Calendar (and synced Google/CalDAV). Reads via icalBuddy; creates/deletes one-off, recurring, and irregular multi-date events via a bundled EventKit script. Events get no alerts unless you ask for them. macOS only.
+- **`/calendar`** - Read and write Apple Calendar (and synced Google/CalDAV). Reads via icalBuddy; creates/deletes one-off, recurring, and irregular multi-date events, and skips single occurrences of a recurring event, via a bundled EventKit script. Events get no alerts unless you ask for them. macOS only.
 - **`/reminders`** - Read and write Apple Reminders (and synced iCloud/CalDAV). Reads via icalBuddy (fast, read-only); creates, completes, and runs a guided reconcile/cleanup pass via AppleScript. Read-safe default; writes confirmed, handling the AppleScript timeout and partial-write gotchas. macOS only.
 - **`/research`** - Web research with quick-lookup and deep modes.
 - **`/pr`** - Create a pull request from a structured template, with user-facing impact framing.

@@ -7,7 +7,8 @@ description: >
   script. Triggers: "calendar", "schedule", "what's on today",
   "my events", "next meeting", "free this week", "agenda", "what do I have",
   "busy tomorrow", "add to calendar", "create event", "schedule recurring",
-  "remove from calendar", "delete event". Apple Calendar is the primary
+  "remove from calendar", "delete event", "skip occurrence", "cancel one
+  session", "no class over the holidays". Apple Calendar is the primary
   source; Google Calendars are pulled in via macOS sync.
 ---
 
@@ -200,9 +201,30 @@ Repeat `--id` for several. By exact title within a date window when the id is un
 swift "$CAL_EK" delete --calendar "Family" --title "Class" --from 2026-05-01 --to 2026-06-01
 ```
 
-Deleting a recurring event removes the whole series (`--span futureEvents`); a one-off removes just itself. Pass `--span` explicitly to override for an id-targeted delete. Title-matched deletes always remove a matched series wholesale — a `thisEvent` delete on one occurrence leaves the rest behind and reads as a failed delete.
+`delete` on a recurring event always removes **the whole series**, including occurrences before the `--from` window; a one-off removes just itself. To drop single occurrences, use `skip` (next section). `--span thisEvent` on a series id is refused: the id resolves to the series' first occurrence, so it would silently remove that one instead of the one you meant.
 
 **Run `list` first and show the user what matched** before a title-matched delete. It matches every event with that exact title in the window.
+
+### Skip occurrences of a recurring event
+
+For "cancel the class over the holidays" or "no practice on the 14th": `skip` removes individual occurrences and leaves the series running. Match the series by `--title` or `--id` (both repeatable, so several series can be handled in one call), and pick occurrences by explicit dates or a window:
+
+```bash
+# Specific days: every listed date must match, or nothing changes
+swift "$CAL_EK" skip --calendar "Family" --title "Swim class" \
+  --dates 2026-12-25,2027-01-01 --dry-run
+
+# Everything in a window (--to is exclusive midnight, like list/delete):
+# a break running 23 Dec through 3 Jan is --to 2027-01-04
+swift "$CAL_EK" skip --calendar "Family" \
+  --title "Swim class" --title "Choir" \
+  --from 2026-12-23 --to 2027-01-04
+```
+
+- **Always `--dry-run` first** and show the user the `would skip` lines. Every match is listed with its date, so wrong titles or windows are visible before anything changes.
+- **All-or-nothing preflight.** A `--dates` entry with no matching occurrence, or a one-off event caught by the title or window, aborts the whole run with `nothing changed`. One-offs are `delete`'s job.
+- After removing, it re-reads the store and prints `verified: N occurrence(s) gone, series kept`. Still spot-check the surrounding weeks with `icalBuddy`, so the check comes from a different code path.
+- Occurrences only match when they **start** inside the window, so a multi-day occurrence that began earlier is left alone.
 
 ### Verify a write landed
 
@@ -287,6 +309,7 @@ Invoke when the user asks about:
 - Schedule conflicts
 - Adding a one-off or recurring event
 - Removing a previously-added event (by id, or by exact title within a date range)
+- Skipping single occurrences of a recurring event (holidays, breaks, one cancelled session)
 - Clearing alerts off events that already have them
 
 ## When NOT to use this skill
@@ -303,6 +326,7 @@ Invoke when the user asks about:
 - **List the target range before creating.** Run `list` over the dates you are about to write and show anything already there. Creating blind produces duplicates, and a pre-existing series can quietly already cover the dates the user is asking for. Never delete a pre-existing event to make room without asking, even when it looks like a near-duplicate of the request.
 - **Prefer N one-off events over an approximate rule.** If the requested dates don't fit an RRULE exactly, use `--dates`. An RRULE that fits *most* of them adds occurrences the user never asked for.
 - **Bound every recurrence.** Use `COUNT` or `UNTIL` unless the user asks for an open-ended series, and state which you applied.
+- **Never `delete` to cancel one occurrence.** `delete` on a series removes all of it. Use `skip`, and `--dry-run` it first.
 - **Save the event id.** Capture and report the id from `create`. Without it, deletion falls back to title matching, which can catch unrelated events.
 - **Default to filtered output (read).** Use the user's Core calendar grouping unless they ask for something specific. Raw `eventsToday` dumps 30+ items on a typical day with many subscribed calendars.
 - **Name calendars verbatim.** Titles with spaces, apostrophes, or trailing whitespace must match exactly as `swift "$CAL_EK" calendars` prints them. Duplicate titles need `--source`.
