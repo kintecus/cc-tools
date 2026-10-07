@@ -17,7 +17,7 @@ Eighteen slash commands and hooks that turn Claude Code into a daily driver: tra
 
 ## 📦 Installation <a name="installation"></a>
 
-**Requirements:** Claude Code. Optional, per-feature: Obsidian v1.12+ (daily-note, reflect, obsidian-vault), the [retroscope](https://github.com/kintecus/retroscope) plugin (required for `/horizon`, optional for `/reflect`), `yt-dlp` (`/yt-transcript`), the `agy` Antigravity CLI and/or a `GEMINI_API_KEY` (`/ask-gemini`). Each command degrades gracefully when its optional dependency is absent. macOS only for `/calendar` and `/reminders`.
+**Requirements:** Claude Code. Optional, per-feature: Obsidian v1.12+ (daily-note, reflect, obsidian-vault), the [retroscope](https://github.com/kintecus/retroscope) plugin (required for `/horizon`, optional for `/reflect`), `yt-dlp` (`/yt-transcript`), the `agy` Antigravity CLI and/or a `GEMINI_API_KEY` (`/ask-gemini`), `ical-buddy` plus Xcode Command Line Tools for the `swift` interpreter (`/calendar`). Each command degrades gracefully when its optional dependency is absent. macOS only for `/calendar` and `/reminders`.
 
 ```bash
 # Clone the marketplace
@@ -59,7 +59,7 @@ export GEMINI_API_KEY="your-key-from-aistudio.google.com/apikey"
 - **`/obsidian-vault`** - Read and navigate your Obsidian vault via the CLI: search, follow links, explore the knowledge graph. Read-only by default.
 - **`/reflect`** - End-of-day review: compares daily-note plan vs actual git/session activity, tracks time per project with costs, appends a summary, updates auto-memory with durable insights.
 - **`/pm-principles`** - Structured interview to articulate your PM operating system. Generates a living PRINCIPLES.md.
-- **`/calendar`** - Read and write Apple Calendar (and synced Google/CalDAV). Reads via icalBuddy; creates/deletes one-off and recurring events via AppleScript. macOS only.
+- **`/calendar`** - Read and write Apple Calendar (and synced Google/CalDAV). Reads via icalBuddy; creates/deletes one-off, recurring, and irregular multi-date events via a bundled EventKit script. Events get no alerts unless you ask for them. macOS only.
 - **`/reminders`** - Read and write Apple Reminders (and synced iCloud/CalDAV). Reads via icalBuddy (fast, read-only); creates, completes, and runs a guided reconcile/cleanup pass via AppleScript. Read-safe default; writes confirmed, handling the AppleScript timeout and partial-write gotchas. macOS only.
 - **`/research`** - Web research with quick-lookup and deep modes.
 - **`/pr`** - Create a pull request from a structured template, with user-facing impact framing.
