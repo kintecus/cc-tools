@@ -17,7 +17,9 @@
 //                       [--notes TEXT] [--location TEXT] [--rrule RRULE]
 //                       [--alarm-minutes N ...] [--all-day]
 //   calendar-ek delete  --calendar NAME (--id ID ... | --title TEXT --from DATE --to DATE)
-//                       [--span thisEvent|futureEvents]
+//                       (recurring: whole series; single occurrences are `skip`)
+//   calendar-ek skip    --calendar NAME (--id ID ... | --title TEXT ...)
+//                       (--dates YYYY-MM-DD,... | --from DATE --to DATE) [--dry-run]
 //   calendar-ek strip-alarms --calendar NAME --from DATE --to DATE [--title TEXT]
 //
 // Events are created with NO alarms unless --alarm-minutes is passed.
@@ -323,8 +325,6 @@ func cmdCreate(_ args: Args, _ store: EKEventStore) {
 
 func cmdDelete(_ args: Args, _ store: EKEventStore) {
     let cal = calendar(named: args.require("calendar"), source: args.one("source"), in: store)
-    let span: EKSpan = (args.one("span") == "futureEvents") ? .futureEvents : .thisEvent
-
     var targets: [EKEvent] = []
     let ids = args.all("id")
     if !ids.isEmpty {
@@ -332,6 +332,11 @@ func cmdDelete(_ args: Args, _ store: EKEventStore) {
             guard let ev = store.event(withIdentifier: id) else { die("no event with id \(id)") }
             guard ev.calendar.calendarIdentifier == cal.calendarIdentifier else {
                 die("event \(id) is not on calendar \"\(cal.title)\"")
+            }
+            // The series id resolves to the first occurrence, so `thisEvent`
+            // would silently remove that one, not the occurrence meant.
+            if ev.hasRecurrenceRules && args.one("span") == "thisEvent" {
+                die("\(id) is a recurring series; use `skip --id \(id) --dates ...` to remove single occurrences")
             }
             targets.append(ev)
         }
@@ -343,18 +348,101 @@ func cmdDelete(_ args: Args, _ store: EKEventStore) {
         if targets.isEmpty { print("no matching events"); return }
     }
 
-    for ev in targets {
+    for match in targets {
+        // A series is removed wholesale from its first occurrence; starting
+        // from a mid-series occurrence would leave the earlier ones behind.
+        // Single occurrences are `skip`'s job.
+        let ev = match.hasRecurrenceRules
+            ? (match.eventIdentifier.flatMap { store.event(withIdentifier: $0) } ?? match)
+            : match
         let label = describe(ev)
-        // A series matched by title/date must be removed wholesale, or the
-        // remaining occurrences reappear on the next read.
-        let effective: EKSpan = ev.hasRecurrenceRules && ids.isEmpty ? .futureEvents : span
+        let span: EKSpan = ev.hasRecurrenceRules ? .futureEvents : .thisEvent
         do {
-            try store.remove(ev, span: effective, commit: true)
-            print("deleted (span=\(effective == .futureEvents ? "futureEvents" : "thisEvent")) \(label)")
+            try store.remove(ev, span: span, commit: true)
+            print("deleted (\(ev.hasRecurrenceRules ? "whole series" : "one-off")) \(label)")
         } catch {
             die("delete failed for \(label): \(error.localizedDescription)")
         }
     }
+}
+
+/// Removes individual occurrences of recurring events (an exception on the
+/// series) and leaves the series itself intact. Resolves every target before
+/// touching anything, so a typo'd date aborts the whole run with no changes.
+func cmdSkip(_ args: Args, _ store: EKEventStore) {
+    let cal = calendar(named: args.require("calendar"), source: args.one("source"), in: store)
+    let ids = Set(args.all("id"))
+    let titles = Set(args.all("title"))
+    guard !ids.isEmpty || !titles.isEmpty else { die("skip requires --id or --title (both repeatable)") }
+
+    // One window per --dates day (each must match something), or a single
+    // --from/--to window (may legitimately match nothing).
+    var windows: [(from: Date, to: Date, label: String, mustMatch: Bool)] = []
+    if let datesRaw = args.one("dates") {
+        for raw in datesRaw.split(separator: ",") {
+            let day = raw.trimmingCharacters(in: .whitespaces)
+            let from = parseLocal(day, what: "--dates entry")
+            windows.append((from, Calendar.current.date(byAdding: .day, value: 1, to: from)!, day, true))
+        }
+    } else {
+        let from = parseLocal(args.require("from"), what: "--from")
+        let to = parseLocal(args.require("to"), what: "--to")
+        guard to > from else { die("--to must be after --from") }
+        windows.append((from, to, "\(dayFmt.string(from: from))..\(dayFmt.string(from: to))", false))
+    }
+
+    let matchesFilter: (EKEvent) -> Bool = {
+        ids.contains($0.eventIdentifier ?? "") || titles.contains($0.title ?? "")
+    }
+    func occurrences(from: Date, to: Date) -> [EKEvent] {
+        store.events(matching: store.predicateForEvents(withStart: from, end: to, calendars: [cal]))
+            .filter { $0.startDate >= from && $0.startDate < to && matchesFilter($0) }
+            .sorted { $0.startDate < $1.startDate }
+    }
+
+    var targets: [(id: String, start: Date, label: String)] = []
+    var problems: [String] = []
+    for w in windows {
+        let hits = occurrences(from: w.from, to: w.to)
+        if hits.isEmpty && w.mustMatch { problems.append("no matching occurrence on \(w.label)") }
+        for ev in hits {
+            guard ev.hasRecurrenceRules, let id = ev.eventIdentifier else {
+                problems.append("one-off, not an occurrence (use delete): \(describe(ev))")
+                continue
+            }
+            targets.append((id, ev.startDate, describe(ev)))
+        }
+    }
+    if !problems.isEmpty { die("nothing changed:\n  " + problems.joined(separator: "\n  ")) }
+    if targets.isEmpty { print("no matching occurrences"); return }
+
+    if args.has("dry-run") {
+        targets.forEach { print("would skip \($0.label)") }
+        return
+    }
+
+    for t in targets {
+        // Re-fetch right before removal: an occurrence object fetched before
+        // an earlier removal on the same series can be stale.
+        let fresh = occurrences(from: t.start, to: t.start.addingTimeInterval(1))
+            .first { $0.eventIdentifier == t.id }
+        guard let ev = fresh else { die("occurrence vanished before removal: \(t.label)") }
+        do {
+            try store.remove(ev, span: .thisEvent, commit: true)
+            print("skipped \(t.label)")
+        } catch {
+            die("skip failed for \(t.label): \(error.localizedDescription)")
+        }
+    }
+
+    store.reset()
+    let leftover = targets.filter { t in
+        occurrences(from: t.start, to: t.start.addingTimeInterval(1)).contains { $0.eventIdentifier == t.id }
+    }
+    if !leftover.isEmpty {
+        die("still present after skip:\n  " + leftover.map(\.label).joined(separator: "\n  "))
+    }
+    print("verified: \(targets.count) occurrence(s) gone, series kept")
 }
 
 func cmdStripAlarms(_ args: Args, _ store: EKEventStore) {
@@ -380,7 +468,7 @@ func cmdStripAlarms(_ args: Args, _ store: EKEventStore) {
 
 let argv = Array(CommandLine.arguments.dropFirst())
 guard let sub = argv.first, !sub.hasPrefix("--") else {
-    die("usage: calendar-ek <calendars|list|create|delete|strip-alarms> [flags] (see header comment)")
+    die("usage: calendar-ek <calendars|list|create|delete|skip|strip-alarms> [flags] (see header comment)")
 }
 let args = Args(Array(argv.dropFirst()))
 let store = grantedStore()
@@ -390,6 +478,7 @@ case "calendars": cmdCalendars(store)
 case "list": cmdList(args, store)
 case "create": cmdCreate(args, store)
 case "delete": cmdDelete(args, store)
+case "skip": cmdSkip(args, store)
 case "strip-alarms": cmdStripAlarms(args, store)
 default: die("unknown subcommand \"\(sub)\"")
 }

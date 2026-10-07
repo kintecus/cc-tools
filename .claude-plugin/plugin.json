@@ -1,6 +1,6 @@
 {
   "name": "tools",
-  "version": "0.27.0",
+  "version": "0.28.0",
   "description": "Personal productivity tools: writing voice, daily notes, reflection, long-horizon retros, PM principles, clippings digest and podcast digest with HTML editorial output, web research, Gemini delegation, git commit, PR creation, calendar read/write, reminders read/write, YouTube transcript search, cross-project memory harvesting, senior build partner persona",
   "author": {
     "name": "kintecus"
