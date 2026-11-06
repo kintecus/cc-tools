@@ -3,10 +3,10 @@
 > [!TIP]
 > ✨ ***A personal productivity toolkit that lives inside Claude Code.***
 
-Eighteen slash commands and hooks that turn Claude Code into a daily driver: transform writing into your own voice, run an Obsidian daily-note and reflection loop, mine your sessions for weekly retros and billable hours, hold a build to a senior engineering-partner bar, and more. Built for a solo developer who works out of the terminal and an Obsidian vault, on macOS. If you live in Claude Code and want it wired into your notes, calendar, and writing, this is for you.
+Nineteen slash commands, hooks, and a compact statusline that turn Claude Code into a daily driver: transform writing into your own voice, run an Obsidian daily-note and reflection loop, mine your sessions for weekly retros and billable hours, hold a build to a senior engineering-partner bar, and more. Built for a solo developer who works out of the terminal and an Obsidian vault, on macOS. If you live in Claude Code and want it wired into your notes, calendar, and writing, this is for you.
 
 > [!NOTE]
-> [📦 Installation](#installation) · [🔧 Setup](#setup) · [⚡ Commands](#commands) · [⚙️ Hooks](#hooks) · [📋 References](#references)
+> [📦 Installation](#installation) · [🔧 Setup](#setup) · [⚡ Commands](#commands) · [⚙️ Hooks](#hooks) · [📊 Statusline](#statusline) · [📋 References](#references)
 
 ## 🎬 Demo <a name="demo"></a>
 
@@ -17,10 +17,17 @@ Eighteen slash commands and hooks that turn Claude Code into a daily driver: tra
 
 ## 📦 Installation <a name="installation"></a>
 
-**Requirements:** Claude Code. Optional, per-feature: Obsidian v1.12+ (daily-note, reflect, obsidian-vault), the [retroscope](https://github.com/kintecus/retroscope) plugin (required for `/horizon`, optional for `/reflect`), `yt-dlp` (`/yt-transcript`), the `agy` Antigravity CLI and/or a `GEMINI_API_KEY` (`/ask-gemini`), `ical-buddy` plus Xcode Command Line Tools for the `swift` interpreter (`/calendar`). Each command degrades gracefully when its optional dependency is absent. macOS only for `/calendar` and `/reminders`.
+**Requirements:** Claude Code. Optional, per-feature: `jq` (statusline), Obsidian v1.12+ (daily-note, reflect, obsidian-vault), the [retroscope](https://github.com/kintecus/retroscope) plugin (required for `/horizon`, optional for `/reflect`), `yt-dlp` (`/yt-transcript`), the `agy` Antigravity CLI and/or a `GEMINI_API_KEY` (`/ask-gemini`), `ical-buddy` plus Xcode Command Line Tools for the `swift` interpreter (`/calendar`). Each command degrades gracefully when its optional dependency is absent. macOS only for `/calendar` and `/reminders`.
+
+On Claude Code 2.1.275 or later, install in one step:
+
+```text
+/plugin install tools --marketplace kintecus/cc-tools
+```
+
+On earlier versions, clone the marketplace:
 
 ```bash
-# Clone the marketplace
 git clone https://github.com/kintecus/cc-tools.git ~/.claude/plugins/marketplaces/kintecus
 ```
 
@@ -70,6 +77,7 @@ export GEMINI_API_KEY="your-key-from-aistudio.google.com/apikey"
 - **`/horizon`** - Long-horizon retrospective over Claude Code sessions. v1 = weekly: cheap Haiku per-day summaries fan out in parallel, then Sonnet (or Opus with `--deep`) synthesizes themes / shipped vs stalled / tangents / decisions / open loops. Includes a **Timesheet** of defensible per-project active time for hourly billing, computed deterministically by `horizon-timesheet.py` (`--no-timesheet` to skip; standalone with `--project` / `--format csv`). Explicit-only.
 - **`/harvest-memory`** - Promote cross-project facts from per-project auto-memory stores into a curated global memory store (`~/.claude/global-memory/`) that loads into every session via `@import`. Discovers stores, finds facts touching 2+ projects, dedups, and proposes a diff - writes nothing without confirmation. Explicit-only.
 - **`/commit`** - Git committer invoked proactively on commits. Produces conventional commits with user-facing impact framing.
+- **`/statusline`** - Configure, preview, or troubleshoot the bundled single-line statusline: 5h/7d rate limits, session cost, model, effort level, context tokens with colour bands, 1M-context marker, repo, git branch, and open-PR badge. Everything comes from the payload Claude Code pipes in, so there are no network calls and no credential reads. Explicit-only.
 - **`/build-partner`** - A senior engineering-partner persona for building: less-but-better, boring-tech-wins, YAGNI, vertical-slice-first. Owns architecture, the data model, code structure, and restraint; pushes back on speculative abstractions; defers the visual layer to the `frontend-design` skill when present. Explicit-only.
 
 ## ⚙️ Hooks <a name="hooks"></a>
@@ -82,7 +90,59 @@ The plugin registers one hook (`hooks/hooks.json`):
 
 > **Removed in 0.25.0:** the plan-review enforcement system (`/review-plan`, the `ExitPlanMode` checkpoint hook, and the `PreToolUse` marker gate). It depended on spawning a fresh-context reviewer subagent, which stopped returning findings after an upstream change to how subagents run and report. See the [0.25.0 removal commit](https://github.com/kintecus/cc-tools/commits/main) for the full implementation if you want to revive it.
 
+## 📊 Statusline <a name="statusline"></a>
+
+A single-line statusline ships with the plugin:
+
+```
+5h 92% 50m !!  7d 22% ~5d  $0.42  Opus 5  xhigh  104k (10%)  1M  owner/repo  main*  #42
+```
+
+Claude Code does not let a plugin set the main statusline, so setup is one manual
+step. The `SessionStart` hook keeps `~/.claude/statusline-tools.sh` up to date, and
+you point `~/.claude/settings.json` at it once, either by running `/statusline` or
+by hand:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline-tools.sh"
+  }
+}
+```
+
+It needs `jq`. Every value except the git branch arrives in the JSON Claude Code
+pipes to the script on stdin, so it makes no network calls and reads no credentials.
+On narrow terminals segments drop in order: repo, session cost, effort.
+
+Context is coloured by absolute tokens, because on a 1M window a percentage stays
+low long after quality starts to slip:
+
+| Tokens | Look | Meaning |
+|---|---|---|
+| under 70k | dim | Cold start and early work |
+| 70-100k | default | Watch |
+| 100-200k | bold yellow | Finish this task, then `/clear` |
+| 200-300k | bold orange | `/compact` or hand off at the next safe point |
+| 300k+ | bold red `!!` | Expect degradation |
+
+Any window at 80% or more also goes red. The sources behind each band are in
+[`commands/statusline/SKILL.md`](commands/statusline/SKILL.md#context-bands). They
+are heuristics, not measured limits.
+
+The installed script is overwritten on update, so make changes in
+`scripts/statusline.sh`. The deliberately non-standard filename leaves
+`~/.claude/statusline.sh` free, so other statusline plugins can stay installed
+without two `SessionStart` hooks racing to overwrite one path.
+
 ## 📋 References <a name="references"></a>
 
 - [`CLAUDE.md`](CLAUDE.md) - agent-facing instructions: plugin structure, conventions, and how to add a skill.
 - [`LICENSE`](LICENSE) - MIT.
+
+## 🙏 Credits <a name="credits"></a>
+
+`scripts/statusline.sh` is derived from the `statusline-compact` plugin in
+[Tribe-Coding/claude-plugins](https://github.com/Tribe-Coding/claude-plugins),
+MIT License, Copyright (c) 2025 Tribe Coding.
