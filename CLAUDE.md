@@ -32,6 +32,8 @@ hooks/
   hooks.json            # SessionStart hook definition
 scripts/
   inject-rules.sh       # SessionStart: effort-estimate rule
+  statusline.sh         # the compact single-line statusline (reads the payload on stdin)
+  setup-statusline.sh   # SessionStart: syncs statusline.sh -> ~/.claude/statusline-tools.sh
 commands/
   commit/               # git committer (conventional commits + impact framing)
     SKILL.md
@@ -68,6 +70,8 @@ commands/
   calendar/             # Apple Calendar read (icalBuddy) + write (EventKit)
     SKILL.md
     calendar-ek.swift   # EventKit write CLI (executable, `swift` shebang; bundled)
+  statusline/           # configure/preview/troubleshoot the bundled statusline
+    SKILL.md
 ```
 
 Note: `commands/ask-gemini/` is the first skill that ships its own executable
@@ -103,6 +107,46 @@ The plugin used to own a layered plan-review enforcement system: a SessionStart 
 
 `inject-rules.sh` used to append today's Obsidian daily note (via `obsidian-cli read daily`, falling back to a direct read of the vault's `Journal/Daily/<date>.md`) to every session's context. Removed because it was the one non-deterministic part of the SessionStart payload — the note changes through the day, so it never hit the prompt prefix cache — and it pushed personal context into sessions that had nothing to do with it. `/daily-note` covers the on-demand case.
 
+## Statusline
+
+`scripts/statusline.sh` renders the single-line statusline. It is derived from
+`statusline-compact` in Tribe-Coding/claude-plugins (MIT, (c) 2025 Tribe Coding) -
+keep the attribution header when editing, and keep the credits note in README.md.
+
+- **A plugin cannot set the main `statusLine`.** Plugin settings only honour `agent`
+  and `subagentStatusLine`, so distribution is two steps: the `SessionStart` hook
+  copies the script to a stable path, because `${CLAUDE_PLUGIN_ROOT}` changes on every
+  version, and the user points `settings.json` at it once via `/statusline`.
+- **The installed copy is plugin-owned.** The hook overwrites it whenever it differs
+  from `scripts/statusline.sh`, so edit the repo, never `~/.claude/statusline-tools.sh`.
+  Direct edits are silently lost at the next session start.
+- **Install target is `~/.claude/statusline-tools.sh`, not `~/.claude/statusline.sh`.**
+  This is deliberate and load-bearing. Other statusline plugins claim the
+  conventional path from their own `SessionStart` hook; two hooks copying
+  different scripts to one path race every session and the last one silently
+  wins. The distinct filename lets both plugins stay installed, with
+  `settings.json` deciding which renders. Do not "fix" this to the conventional name.
+- **The hook never edits `settings.json`.** `setup-statusline.sh` only syncs the
+  file. Turning the statusline on is a manual, explicit step, because
+  `statusLine` is a single global slot that another plugin may legitimately own.
+- **Context is banded in absolute tokens, not percentage.** On a 1M window a
+  percentage scale stays dim until far past the point of degradation. Bands and their
+  sources live in `commands/statusline/SKILL.md`; keep them in sync with the `CTX_*`
+  constants in the script.
+- **Every value except the git branch comes from the stdin payload.** No network
+  calls, no credential reads. Model-scoped weekly limits (`seven_day_opus`,
+  `seven_day_sonnet`) and overage credits (`extra_usage`) exist inside Claude Code
+  but are **not** projected into the statusline payload, so they cannot be shown
+  without reading an OAuth token from the keychain and calling an undocumented
+  endpoint on the render hot path. That tradeoff was rejected; tracked upstream as
+  anthropics/claude-code#82656.
+- **Two constraints when editing:** bash 3.2 (macOS `/bin/bash`) - no
+  `EPOCHSECONDS`, no `${x,,}`, no associative arrays. And a subprocess budget of
+  one `jq` pass plus one `git status -b` call, since this runs on every render.
+  Each segment sets a coloured string *and* a plain-text twin via `set_seg`; the
+  twin is what the width math reads, so a segment without one breaks progressive
+  hiding.
+
 ## Obsidian CLI dependency
 
 The daily-note, obsidian-vault, and clippings-digest skills require the Obsidian CLI (`/Applications/Obsidian.app/Contents/MacOS/obsidian`, v1.12+). Obsidian must be running.
@@ -128,6 +172,7 @@ The daily-note, obsidian-vault, and clippings-digest skills require the Obsidian
 | `/horizon` | "weekly retro", "horizon week", "how was my week" (explicit-only) | Long-horizon retrospective. v1 = weekly: Haiku per-day summaries + Sonnet synthesis (Opus with `--deep`). Includes a deterministic Timesheet section (`horizon-timesheet.py`, Step 5c) for defensible per-project billable hours; `--no-timesheet` to skip. Writes to retroscope storage repo + mirrors to vault. |
 | `/harvest-memory` | explicit invocation only | Promote cross-project facts from per-project auto-memory stores into the global memory store (`~/.claude/global-memory/`, loaded everywhere via `@import`). Propose-then-confirm; writes nothing without approval. |
 | `/commit` | PROACTIVE on git commits | Conventional commits with user-facing impact framing |
+| `/statusline` | explicit invocation only | Configure, preview, or troubleshoot the bundled single-line statusline. Segments: 5h/7d limits, session cost, model, effort (hidden at `medium`), context tokens and % with absolute-token bands, 1M marker, repo, branch, open-PR badge. All from the stdin payload except the git branch - no network, no credentials. See the statusline section above. |
 | `/build-partner` | explicit invocation only | Senior engineering-partner persona for building: less-but-better, boring-tech-wins, YAGNI, vertical-slice-first. Owns architecture/data-model/restraint; defers the visual layer to `frontend-design`. |
 
 ## Adding a new skill
