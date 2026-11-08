@@ -79,6 +79,7 @@ export GEMINI_API_KEY="your-key-from-aistudio.google.com/apikey"
 - **`/commit`** - Git committer invoked proactively on commits. Produces conventional commits with user-facing impact framing.
 - **`/statusline`** - Configure, preview, or troubleshoot the bundled single-line statusline: 5h/7d rate limits, session cost, model, effort level, context tokens with colour bands, 1M-context marker, repo, git branch, and open-PR badge. Everything comes from the payload Claude Code pipes in, so there are no network calls and no credential reads. Explicit-only.
 - **`/build-partner`** - A senior engineering-partner persona for building: less-but-better, boring-tech-wins, YAGNI, vertical-slice-first. Owns architecture, the data model, code structure, and restraint; pushes back on speculative abstractions; defers the visual layer to the `frontend-design` skill when present. Explicit-only.
+- **`/law-review`** - Review a diff, PR, or plan against named software laws (Gall's Law, YAGNI, second-system effect, least astonishment, Chesterton's Fence, Hyrum's Law, and more) for system-level design problems rather than style. Triages files by blast radius, asks for evidence of outcomes beyond passing tests, and ends with questions the human owner should be able to answer. Read-only, explicit-only.
 
 ## ⚙️ Hooks <a name="hooks"></a>
 
