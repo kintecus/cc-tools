@@ -2,15 +2,15 @@
 # Derived from the `retroscope` plugin (0.3.1) in Tribe Coding claude-plugins,
 # MIT License, Copyright (c) 2025 Tribe Coding.
 # https://github.com/artem-from-ua/claude-plugins/tree/bcc769c14690b8d9da0230f8b3b34d551bb016e9/plugins/retroscope
-# Local changes: --projects-dir (read an archive of session logs) and skipping
-# sessions where Claude never replied.
+# Local changes: --projects-dir (read an archive of session logs), skipping
+# sessions where Claude never replied, and --date/--tz scoping for --stats.
 """
 find-sessions.py — Session discovery and content extraction for /retro, /horizon, and /reflect.
 
 Modes:
   List mode:    find-sessions.py <today|yesterday|YYYY-MM-DD|YYYY-MM-DD:YYYY-MM-DD> [--project-dir DIR] [--tz TIMEZONE]
   Extract mode: find-sessions.py --extract <session.jsonl> [--date YYYY-MM-DD]
-  Stats mode:   find-sessions.py --stats <session.jsonl>
+  Stats mode:   find-sessions.py --stats <session.jsonl> [--date YYYY-MM-DD] [--tz TIMEZONE]
 """
 
 import argparse
@@ -571,12 +571,20 @@ def match_model_to_pricing(model_id: str, pricing: dict) -> tuple[dict | None, s
     return None, ""
 
 
-def get_stats(jsonl_file: str):
+def get_stats(jsonl_file: str, date_filter: str | None = None, tz_name: str | None = None):
     """
     Compute session statistics and output as JSON.
     Returns: message_counts, token_usage, tool_counts, time_range, branches, models
+
+    With date_filter (YYYY-MM-DD, local to tz_name), only records timestamped on
+    that day count. A resumed session can span weeks; unfiltered, its full span,
+    tokens, and cost land on every day it is listed for.
     """
-    tz = get_timezone(None)
+    tz = get_timezone(tz_name)
+    date_obj = date.fromisoformat(date_filter) if date_filter else None
+
+    def in_scope(ts: datetime | None) -> bool:
+        return date_obj is None or (ts is not None and ts.date() == date_obj)
 
     stats = {
         "file": jsonl_file,
@@ -625,10 +633,12 @@ def get_stats(jsonl_file: str):
             stats["slug"] = obj["slug"]
         if not stats["cwd"] and obj.get("cwd"):
             stats["cwd"] = obj["cwd"]
-        if obj.get("gitBranch"):
-            branches_set.add(obj["gitBranch"])
 
         ts = parse_timestamp(obj.get("timestamp"), tz)
+        if not in_scope(ts):
+            continue
+        if obj.get("gitBranch"):
+            branches_set.add(obj["gitBranch"])
         if ts:
             if first_ts is None or ts < first_ts:
                 first_ts = ts
@@ -698,6 +708,8 @@ def get_stats(jsonl_file: str):
                 try:
                     obj2 = json.loads(line2)
                 except json.JSONDecodeError:
+                    continue
+                if not in_scope(parse_timestamp(obj2.get("timestamp"), tz)):
                     continue
                 msg2 = obj2.get("message", {})
                 model2 = msg2.get("model", "")
@@ -777,7 +789,8 @@ def main():
     parser.add_argument("--projects-dir",
                         help="Session-log root to search instead of ~/.claude/projects "
                              "(e.g. an archive that outlives cleanupPeriodDays)")
-    parser.add_argument("--date", dest="date_filter", help="Date filter for --extract mode (YYYY-MM-DD)")
+    parser.add_argument("--date", dest="date_filter",
+                        help="Date filter for --extract and --stats modes (YYYY-MM-DD; --stats honours --tz)")
 
     args = parser.parse_args()
 
@@ -787,7 +800,7 @@ def main():
     if args.extract:
         extract_session(args.extract, args.date_filter)
     elif args.stats:
-        get_stats(args.stats)
+        get_stats(args.stats, args.date_filter, args.tz)
     elif args.date:
         if args.all_projects:
             find_sessions_all_projects(args.date, args.tz, args.projects_dir)

@@ -145,8 +145,14 @@ def list_sessions_for_date(retroscope: Path, day: date, scope: str, tz: str,
     return out
 
 
-def get_session_stats(retroscope: Path, session_path: Path) -> dict:
-    cmd = ["python3", str(retroscope), "--stats", str(session_path)]
+def get_session_stats(retroscope: Path, session_path: Path, day: date, tz: str) -> dict:
+    """Stats for one session, scoped to records on `day` (local to tz).
+
+    Unscoped, a session resumed across weeks contributes its whole span, tokens,
+    and cost to every day it is listed for.
+    """
+    cmd = ["python3", str(retroscope), "--stats", str(session_path),
+           "--date", day.isoformat(), "--tz", tz]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     except FileNotFoundError:
@@ -202,6 +208,10 @@ def aggregate_stats(stats_blocks: list[dict]) -> dict:
         # Per-session blocks lack session_count; per-day blocks already have it.
         if "session_count" in s:
             count += int(s.get("session_count") or 0)
+        elif not (s.get("message_counts") or {}).get("assistant"):
+            # No Claude reply on this day (e.g. a resumed session's stray
+            # attachment record): no work happened, same rule as the probe filter.
+            continue
         else:
             count += 1
         if s.get("cwd"):
@@ -475,7 +485,7 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             parts = write_day_with_parts(prose_path, summary_text, args.max_day_bytes, args.debug)
             # Reaggregate stats from the underlying sessions (cheap; gives consistent numbers).
-            stats_blocks = [get_session_stats(retroscope, p) for p in session_paths]
+            stats_blocks = [get_session_stats(retroscope, p, day, args.tz) for p in session_paths]
             day_stats = aggregate_stats(stats_blocks)
             stats_path.write_text(json.dumps(day_stats, indent=2), encoding="utf-8")
             week_stats_blocks.append(day_stats)
@@ -536,7 +546,7 @@ def main(argv: list[str] | None = None) -> int:
                     sys.stderr.write(result.stderr)
             # Stats from upstream per-session.
             for path in paths:
-                stats_blocks.append(get_session_stats(retroscope, path))
+                stats_blocks.append(get_session_stats(retroscope, path, day, args.tz))
 
         parts = write_day_with_parts(prose_path, "".join(prose_chunks),
                                        args.max_day_bytes, args.debug)
