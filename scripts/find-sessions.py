@@ -421,14 +421,33 @@ _PRICING_URL = "https://platform.claude.com/docs/en/docs/about-claude/pricing"
 _PRICING_CACHE_FILE = f"/tmp/claude-model-pricing-{os.getuid()}.json"
 _PRICING_CACHE_TTL = 86400  # 24 hours
 
+MODEL_FAMILIES = ("fable", "mythos", "opus", "sonnet", "haiku")
+
 # Fallback pricing per 1M tokens: {key: {"input", "output", "cache_write", "cache_read"}}
-# Used only when both fetch and cache fail.
-# Source: https://platform.claude.com/docs/en/docs/about-claude/pricing (Feb 2026)
+# cache_write is the 5-minute write rate. Used only when both fetch and cache fail.
+# Source: https://platform.claude.com/docs/en/docs/about-claude/pricing (Nov 2026)
+# Haiku 5.5 is priced for prompts up to 100K tokens; longer prompts cost more.
 FALLBACK_PRICING = {
+    "fable-5.2":  {"input": 8.0,  "output": 40.0, "cache_write": 10.0,  "cache_read": 0.20},
+    "mythos-5.2": {"input": 8.0,  "output": 40.0, "cache_write": 10.0,  "cache_read": 0.20},
+    "fable-5.1":  {"input": 10.0, "output": 50.0, "cache_write": 12.5,  "cache_read": 0.25},
+    "mythos-5.1": {"input": 10.0, "output": 50.0, "cache_write": 12.5,  "cache_read": 0.25},
+    "fable-5":    {"input": 10.0, "output": 50.0, "cache_write": 12.5,  "cache_read": 1.00},
+    "mythos-5":   {"input": 10.0, "output": 50.0, "cache_write": 12.5,  "cache_read": 1.00},
+    "opus-5.5":   {"input": 4.0,  "output": 20.0, "cache_write": 5.0,   "cache_read": 0.20},
+    "opus-5":     {"input": 5.0,  "output": 25.0, "cache_write": 6.25,  "cache_read": 0.50},
+    "opus-4.8":   {"input": 5.0,  "output": 25.0, "cache_write": 6.25,  "cache_read": 0.50},
+    "opus-4.7":   {"input": 5.0,  "output": 25.0, "cache_write": 6.25,  "cache_read": 0.50},
     "opus-4.6":   {"input": 5.0,  "output": 25.0, "cache_write": 6.25,  "cache_read": 0.50},
     "opus-4.5":   {"input": 5.0,  "output": 25.0, "cache_write": 6.25,  "cache_read": 0.50},
+    "opus-4.1":   {"input": 15.0, "output": 75.0, "cache_write": 18.75, "cache_read": 1.50},
+    "opus-4":     {"input": 15.0, "output": 75.0, "cache_write": 18.75, "cache_read": 1.50},
+    "sonnet-5.5": {"input": 2.0,  "output": 10.0, "cache_write": 2.5,   "cache_read": 0.10},
+    "sonnet-5":   {"input": 2.0,  "output": 10.0, "cache_write": 2.5,   "cache_read": 0.20},
     "sonnet-4.6": {"input": 3.0,  "output": 15.0, "cache_write": 3.75,  "cache_read": 0.30},
     "sonnet-4.5": {"input": 3.0,  "output": 15.0, "cache_write": 3.75,  "cache_read": 0.30},
+    "sonnet-4":   {"input": 3.0,  "output": 15.0, "cache_write": 3.75,  "cache_read": 0.30},
+    "haiku-5.5":  {"input": 0.10, "output": 0.50, "cache_write": 0.125, "cache_read": 0.01},
     "haiku-4.5":  {"input": 1.0,  "output": 5.0,  "cache_write": 1.25,  "cache_read": 0.10},
     # Claude 3.x legacy
     "opus-3":     {"input": 15.0, "output": 75.0, "cache_write": 18.75, "cache_read": 1.50},
@@ -595,16 +614,18 @@ def match_model_to_pricing(model_id: str, pricing: dict) -> tuple[dict | None, s
 
     # Extract family and version from model ID
     # Patterns: claude-{family}-{major}-{minor}[-date] or claude-{family}-{major}
-    family_match = re.search(r"claude-(opus|sonnet|haiku)-(\d+)-?(\d+)?", model_lower)
+    # Minor is 1-2 digits, so a date suffix ("claude-opus-4-20250514") isn't read as one.
+    family_match = re.search(
+        rf"claude-({'|'.join(MODEL_FAMILIES)})-(\d+)(?:-(\d{{1,2}})(?!\d))?", model_lower
+    )
     if family_match:
         family = family_match.group(1)
         major = family_match.group(2)
         minor = family_match.group(3)
-        if minor:
-            # Try exact version match first
-            key = f"{family}-{major}.{minor}"
-            if key in pricing:
-                return pricing[key], key
+        # Exact match first: "opus-5.5" for claude-opus-5-5, "opus-5" for claude-opus-5
+        key = f"{family}-{major}.{minor}" if minor else f"{family}-{major}"
+        if key in pricing:
+            return pricing[key], key
         # Try major-only match (e.g. "sonnet-4" matches "sonnet-4.6")
         prefix = f"{family}-{major}."
         candidates = [k for k in pricing if k.startswith(prefix)]
@@ -614,7 +635,7 @@ def match_model_to_pricing(model_id: str, pricing: dict) -> tuple[dict | None, s
             return pricing[best], best
 
     # Fallback: family keyword match
-    for family in ("opus", "sonnet", "haiku"):
+    for family in MODEL_FAMILIES:
         if family in model_lower:
             candidates = [k for k in pricing if k.startswith(family + "-")]
             if candidates:
