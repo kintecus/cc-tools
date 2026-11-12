@@ -437,11 +437,45 @@ FALLBACK_PRICING = {
 }
 
 
+def _pricing_header_field(header: str) -> str | None:
+    """Map a pricing-table column header to a pricing field, or None to ignore it."""
+    h = header.lower()
+    if "1h" in h:
+        return None  # 1-hour cache writes: not used (5m writes are the default)
+    if "5m" in h:
+        return "cache_write"
+    if "hit" in h or "refresh" in h:
+        return "cache_read"
+    if "output" in h:
+        return "output"
+    if "input" in h:
+        return "input"
+    return None
+
+
+def _pricing_error(pricing: dict) -> str | None:
+    """Return why a pricing table is implausible, or None if it looks right.
+
+    Catches shifted columns: output must exceed input, cache reads must be cheaper.
+    """
+    for key, p in pricing.items():
+        try:
+            inp, out, read = float(p["input"]), float(p["output"]), float(p["cache_read"])
+            float(p["cache_write"])
+        except (KeyError, TypeError, ValueError):
+            return f"{key}: missing or non-numeric price"
+        if not out > inp:
+            return f"{key}: output {out} is not above input {inp}"
+        if not read < inp:
+            return f"{key}: cache_read {read} is not below input {inp}"
+    return None
+
+
 def fetch_pricing() -> dict | None:
     """Fetch pricing from platform.claude.com pricing page (SSR HTML).
 
-    Parses the HTML table with columns:
-      Model | Base Input | 5m Cache Writes | 1h Cache Writes | Cache Hits | Output
+    Columns are mapped by header name, not position (the page has reordered them
+    before). Needs Input, Output, 5m writes, and cache Hits columns.
     Returns dict like FALLBACK_PRICING, or None on failure.
     """
     try:
@@ -454,46 +488,64 @@ def fetch_pricing() -> dict | None:
     except Exception:
         return None
 
+    table_re = re.compile(r"<table[^>]*>(.*?)</table>", re.DOTALL)
     row_re = re.compile(r"<tr[^>]*>(.*?)</tr>", re.DOTALL)
+    th_re = re.compile(r"<th[^>]*>(.*?)</th>", re.DOTALL)
     td_re = re.compile(r"<td[^>]*>(.*?)</td>", re.DOTALL)
     tag_re = re.compile(r"<[^>]+>")
     price_re = re.compile(r"\$([0-9.]+)\s*/\s*MTok")
+    wanted = {"input", "output", "cache_write", "cache_read"}
 
     pricing = {}
-    for row_match in row_re.finditer(html):
-        row_html = row_match.group(1)
-        cells = td_re.findall(row_html)
-        if len(cells) < 6:
+    for table_match in table_re.finditer(html):
+        rows = row_re.findall(table_match.group(1))
+        # Header rows are those before the first data row (the body can hold
+        # th-only rows such as "Additional models" toggles).
+        first_data = next((i for i, r in enumerate(rows) if "<td" in r), len(rows))
+        header_rows = [r for r in rows[:first_data] if "<th" in r]
+        if not header_rows:
+            continue
+        # Last header row holds the leaf column names (earlier ones are column groups).
+        headers = [tag_re.sub("", h).strip() for h in th_re.findall(header_rows[-1])]
+        fields = [_pricing_header_field(h) for h in headers]
+        mapped = [f for f in fields if f]
+        if set(mapped) != wanted or len(mapped) != len(wanted):
             continue
 
-        cells_text = [tag_re.sub("", c).strip() for c in cells]
-        model_cell = cells_text[0]
-        if not model_cell.startswith("Claude "):
-            continue
+        for row_html in rows:
+            cells = td_re.findall(row_html)
+            if len(cells) != len(headers):
+                continue  # also skips tiered continuation rows (fewer cells)
+            cells_text = [tag_re.sub("", c).strip() for c in cells]
+            model_cell = cells_text[0]
+            if not model_cell.startswith("Claude "):
+                continue
 
-        prices = []
-        for cell in cells_text[1:6]:
-            m = price_re.search(cell)
-            prices.append(float(m.group(1)) if m else None)
+            # "Claude Opus 4.6" -> "opus-4.6"; "Claude Opus 4" -> "opus-4"
+            name_match = re.match(r"Claude\s+(\w+)\s+([\d.]+)", model_cell)
+            if not name_match:
+                continue
+            key = f"{name_match.group(1).lower()}-{name_match.group(2)}"
 
-        if len(prices) < 5 or None in prices:
-            continue
+            entry = {}
+            for field, cell in zip(fields, cells_text):
+                if field:
+                    m = price_re.search(cell)
+                    if m:
+                        entry[field] = float(m.group(1))
+            if set(entry) == wanted:
+                pricing[key] = entry
 
-        # "Claude Opus 4.6" -> "opus-4.6"; "Claude Opus 4" -> "opus-4"
-        name_match = re.match(r"Claude\s+(\w+)\s+([\d.]+)", model_cell)
-        if not name_match:
-            continue
-        key = f"{name_match.group(1).lower()}-{name_match.group(2)}"
-
-        # Columns: Base Input | 5m Cache Writes | 1h Cache Writes | Cache Hits | Output
-        pricing[key] = {
-            "input": prices[0],
-            "cache_write": prices[1],
-            "cache_read": prices[3],
-            "output": prices[4],
-        }
-
-    return pricing if pricing else None
+    if not pricing:
+        print("find-sessions: pricing page has no recognizable price table; "
+              "using built-in fallback prices", file=sys.stderr)
+        return None
+    error = _pricing_error(pricing)
+    if error:
+        print(f"find-sessions: pricing table failed sanity check ({error}); "
+              "using built-in fallback prices", file=sys.stderr)
+        return None
+    return pricing
 
 
 def load_pricing() -> tuple[dict, str]:
@@ -508,8 +560,9 @@ def load_pricing() -> tuple[dict, str]:
             if time.time() - mtime < _PRICING_CACHE_TTL:
                 with open(_PRICING_CACHE_FILE) as f:
                     cached = json.load(f)
-                if isinstance(cached.get("models"), dict) and cached["models"]:
-                    return cached["models"], "cached"
+                models = cached.get("models")
+                if isinstance(models, dict) and models and _pricing_error(models) is None:
+                    return models, "cached"  # implausible caches are refetched
     except (OSError, json.JSONDecodeError):
         pass  # Cache read failure is non-fatal; fall back to fetching or static pricing.
 
