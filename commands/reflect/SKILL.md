@@ -24,7 +24,7 @@ obsidian-cli read daily 2>&1 | grep -v "Loading updated\|out of date\|better CLI
 ### 1b. Scan git activity across active repos
 
 ```bash
-for dir in ~/code/satori/walletsvc ~/code/satori/magnolia ~/code/satori/adcreator ~/code/personal/cc-tools ~/code/dotfiles ~/code/homelab ~/code/build ~/code/tribe-coding/claude-plugins; do
+for dir in ~/code/satori/walletsvc ~/code/satori/magnolia ~/code/satori/adcreator ~/code/cc-tools ~/code/dotfiles ~/code/homelab ~/code/build; do
   COMMITS=$(git -C "$dir" log --since="00:00" --oneline --all 2>/dev/null)
   if [ -n "$COMMITS" ]; then
     echo "=== $(basename $(dirname $dir))/$(basename $dir) ==="
