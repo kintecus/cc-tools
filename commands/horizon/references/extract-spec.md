@@ -128,7 +128,7 @@ Target: ≥90% byte reduction vs raw JSONL.
 Calibration test (run once, record the number in this file):
 
 ```bash
-RAW=$(ls -S ~/.claude/projects/-Users-you-code/*.jsonl | head -1)
+RAW=$(ls -S ~/.claude/projects/$(printf %s "$HOME/code" | sed 's/[^A-Za-z0-9]/-/g')/*.jsonl | head -1)
 RAW_BYTES=$(wc -c < "$RAW")
 EXTRACTED_BYTES=$(python3 horizon-extract.py \
   --session "$RAW" \

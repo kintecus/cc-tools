@@ -29,14 +29,15 @@ Auto-memory is keyed by git root, so each project has its own store at
 `~/.claude/projects/<hash>/memory/MEMORY.md`. List them and keep the `~/code` workspace
 stores. The hash uses the project path with separators replaced by `-`, and **the path
 casing is preserved** — satori's repos live at `~/code/satori/...` but their store hashes
-are `-Users-you-Code-satori-walletsvc` and `-Users-you-Code-satori-walletsvc-frontend`
+are `-Users-me-Code-satori-walletsvc` and `-Users-me-Code-satori-walletsvc-frontend`
 (capital `C`). A lowercase-only match silently drops the highest-stakes project.
 
 ```bash
 # Match BOTH cases of "code"; derive the active set from what actually exists on disk.
 # NOTE: the stores sit at projects/<hash>/memory/MEMORY.md — that is depth 3 under
 # `projects`, so -maxdepth must be >= 3 (a tighter cap silently finds nothing).
-find ~/.claude/projects -maxdepth 3 -name MEMORY.md -path '*-Users-you-[Cc]ode*/memory/MEMORY.md' 2>/dev/null | sort
+HOME_ENC=$(printf %s "$HOME" | sed 's/[^A-Za-z0-9]/-/g')   # e.g. -Users-me
+find ~/.claude/projects -maxdepth 3 -name MEMORY.md -path "*${HOME_ENC}-[Cc]ode*/memory/MEMORY.md" 2>/dev/null | sort
 ```
 
 Rules for this step:
@@ -44,7 +45,7 @@ Rules for this step:
 - **Derive the active set dynamically** from the files that exist. Do NOT hardcode a
   project-name list — some named projects (e.g. family-os, music-agent) have no store on
   disk, and a hardcoded list would iterate dead paths.
-- **The root workspace store** (`-Users-you-code/memory/MEMORY.md`, lowercase `code`) is
+- **The root workspace store** (`${HOME_ENC}-code/memory/MEMORY.md`, lowercase `code`) is
   itself one of the sources — it already holds many cross-project facts curated by hand.
 - **Assert satori is present.** If the discovered set contains no satori store, surface a
   warning (satori is the highest-stakes project and its capital-`C` path is the exact thing

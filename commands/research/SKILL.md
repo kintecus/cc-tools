@@ -74,7 +74,7 @@ Read the project's CLAUDE.md and workspace CLAUDE.md for stack context when form
 
 ## Step 3: Memory persistence (deep research only)
 
-After deep research, evaluate whether findings are worth persisting to auto-memory (`~/.claude/projects/-Users-you-code/memory/`).
+After deep research, evaluate whether findings are worth persisting to auto-memory (`~/.claude/projects/<encoded ~/code>/memory/` (`<encoded ~/code>` is the absolute path of `~/code` with every non-alphanumeric character replaced by `-`, e.g. `-Users-me-code`; resolve it with `printf %s "$HOME/code" | sed 's/[^A-Za-z0-9]/-/g'`)).
 
 **Save when:**
 - A technology decision was reached ("chose X over Y because Z")
