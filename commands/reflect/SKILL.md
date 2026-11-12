@@ -43,7 +43,7 @@ Read `~/.claude/projects/<encoded ~/code>/memory/MEMORY.md` (`<encoded ~/code>` 
 Use the retroscope session finder to get time and cost data. This is required - time tracking is a core output.
 
 ```bash
-FINDER="$HOME/.claude/plugins/marketplaces/tribe-coding/plugins/retroscope/scripts/find-sessions.py"
+FINDER="${CLAUDE_PLUGIN_ROOT}/scripts/find-sessions.py"
 
 # Get today's session files
 SESSION_FILES=$(python3 "$FINDER" today --tz Europe/Warsaw 2>/dev/null)

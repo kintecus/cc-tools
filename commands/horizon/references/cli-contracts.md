@@ -18,9 +18,9 @@ extraction over raw session JSONL.
 --project-dir PATH                 # default $CLAUDE_PROJECT_DIR or cwd
 --tz IANA-TZ                       # default from config
 --storage-dir PATH                 # default from config
---retroscope-script PATH           # default: env $RETROSCOPE_SCRIPT then chain
+--retroscope-script PATH           # default: env $RETROSCOPE_SCRIPT, then the bundled <plugin root>/scripts/find-sessions.py
 --projects-dir PATH                # session-log root for find-sessions.py; default ~/.claude/projects.
-                                   # Point at an archive for windows past cleanupPeriodDays. Needs retroscope >= 0.4.0
+                                   # Point at an archive for windows past cleanupPeriodDays. Needs find-sessions.py >= 0.4.0 (the bundled copy)
 --out-dir PATH                     # default ${TMPDIR:-/tmp}/horizon-{YYYY-Www}-{pid}
 --max-day-bytes N                  # default 200000 (≈ 50K tokens); split per-day prose into parts
 --debug
@@ -47,15 +47,15 @@ master file.
 Prints to stdout: the absolute path of `--out-dir`. Nothing else.
 
 Sessions where Claude never replied (only local slash commands, or automated
-`claude -p "/usage"` probes) are not listed: retroscope >= 0.4.0 skips them at
-discovery.
+`claude -p "/usage"` probes) are not listed: the bundled `find-sessions.py` skips them
+at discovery.
 
 ### Exit codes
 
 | Code | Meaning |
 | --- | --- |
 | 0 | OK |
-| 2 | retroscope `find-sessions.py` not found, not executable, or failed (e.g. `--projects-dir` missing, or retroscope < 0.4.0 rejecting the flag). Never reported as an empty day |
+| 2 | `find-sessions.py` not found, not executable, or failed (e.g. `--projects-dir` missing, or an override older than 0.4.0 rejecting the flag). Never reported as an empty day |
 | 3 | invalid week (future, ill-formed, before session-history start) |
 | 4 | `storageDir` missing or not a directory |
 | 5 | one or more session files unreadable (manifest will mark them) |

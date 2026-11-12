@@ -13,7 +13,7 @@ disable-model-invocation: true
 # Horizon — long-horizon retrospective
 
 Aggregates Claude Code session activity over a week (later: month, quarter).
-Built on top of the retroscope plugin's session extraction; adds stricter
+Built on the bundled `find-sessions.py` (from retroscope) for session discovery; adds stricter
 text cleanup, parallel Haiku per-day summaries, and a Sonnet/Opus synthesis.
 
 **See also:** `/harvest-memory` (promotes cross-project facts into the global
@@ -71,25 +71,19 @@ report a busy week as nearly empty.
 Resolve scope from config (`scope: "project"` or `"all"`, default `"project"`).
 Cross-project (`"all"`) routes output under `_cross-project/`.
 
-## Step 2: Resolve retroscope script
+## Step 2: Resolve the session finder
 
-Resolution chain. First executable wins. Hard error if none.
+`find-sessions.py` ships with this plugin. An explicit `RETROSCOPE_SCRIPT`
+overrides it. Hard error if the script is missing or not executable.
 
 ```bash
-RETROSCOPE_SCRIPT="${RETROSCOPE_SCRIPT:-}"
-if [ -z "$RETROSCOPE_SCRIPT" ]; then
-  for candidate in \
-    "$HOME/.claude/plugins/marketplaces/tribe-coding/plugins/retroscope/scripts/find-sessions.py" \
-    "$HOME/code/tribe-coding/claude-plugins/plugins/retroscope/scripts/find-sessions.py"; do
-    if [ -x "$candidate" ]; then RETROSCOPE_SCRIPT="$candidate"; break; fi
-  done
-fi
-[ -n "$RETROSCOPE_SCRIPT" ] || { echo "retroscope not found (install tribe-coding/retroscope)"; exit 2; }
+RETROSCOPE_SCRIPT="${RETROSCOPE_SCRIPT:-${CLAUDE_PLUGIN_ROOT}/scripts/find-sessions.py}"
+[ -x "$RETROSCOPE_SCRIPT" ] || { echo "find-sessions.py not found or not executable: $RETROSCOPE_SCRIPT"; exit 2; }
 ```
 
-`--projects-dir` and the skip of reply-less sessions need retroscope >= 0.4.0.
-An older version rejects the flag; the collector then exits 2 with an upgrade
-hint rather than returning an empty week.
+The bundled copy supports `--projects-dir` and skips reply-less sessions. An
+override older than retroscope 0.4.0 rejects the flag; the collector then exits
+2 with a hint rather than returning an empty week.
 
 ## Step 3: Cache check
 

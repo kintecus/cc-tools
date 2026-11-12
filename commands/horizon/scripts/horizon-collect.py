@@ -81,10 +81,10 @@ def reject_future_week(start: date, tz: ZoneInfo) -> None:
 # --- Retroscope script resolution -------------------------------------------
 
 
-RETROSCOPE_CANDIDATES = [
-    Path.home() / ".claude/plugins/marketplaces/tribe-coding/plugins/retroscope/scripts/find-sessions.py",
-    Path.home() / "code/tribe-coding/claude-plugins/plugins/retroscope/scripts/find-sessions.py",
-]
+# Bundled with this plugin at <plugin root>/scripts/find-sessions.py. Resolved
+# from this file's location: CLAUDE_PLUGIN_ROOT is not exported to scripts run
+# from the Bash tool.
+BUNDLED_FIND_SESSIONS = Path(__file__).resolve().parents[3] / "scripts" / "find-sessions.py"
 
 
 def resolve_retroscope(explicit: str | None) -> Path | None:
@@ -96,9 +96,8 @@ def resolve_retroscope(explicit: str | None) -> Path | None:
         p = Path(env).expanduser()
         if p.is_file() and os.access(p, os.X_OK):
             return p
-    for cand in RETROSCOPE_CANDIDATES:
-        if cand.is_file() and os.access(cand, os.X_OK):
-            return cand
+    if BUNDLED_FIND_SESSIONS.is_file() and os.access(BUNDLED_FIND_SESSIONS, os.X_OK):
+        return BUNDLED_FIND_SESSIONS
     return None
 
 
@@ -129,7 +128,7 @@ def list_sessions_for_date(retroscope: Path, day: date, scope: str, tz: str,
     if result.returncode != 0:
         hint = ""
         if projects_dir and "unrecognized arguments" in result.stderr:
-            hint = " (--projects-dir needs retroscope >= 0.4.0; update the tribe-coding marketplace)"
+            hint = " (--projects-dir needs find-sessions.py >= 0.4.0; use the copy bundled in this plugin's scripts/)"
         raise SessionListingError(
             f"find-sessions.py failed for {date_str} (rc={result.returncode}){hint}: "
             f"{result.stderr.strip()}")
@@ -396,7 +395,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--retroscope-script", default=None)
     p.add_argument("--projects-dir", default=None,
                    help="Session-log root passed to find-sessions.py instead of ~/.claude/projects "
-                        "(an archive that outlives cleanupPeriodDays). Needs retroscope >= 0.4.0")
+                        "(an archive that outlives cleanupPeriodDays). Needs find-sessions.py >= 0.4.0")
     p.add_argument("--out-dir", default=None)
     p.add_argument("--max-day-bytes", type=int, default=200_000,
                    help="Split per-day prose into parts when it exceeds this many UTF-8 bytes (default: 200000 ≈ 50K tokens)")
@@ -423,7 +422,7 @@ def main(argv: list[str] | None = None) -> int:
 
     retroscope = resolve_retroscope(args.retroscope_script)
     if retroscope is None:
-        print("horizon-collect: find-sessions.py not found (install retroscope)", file=sys.stderr)
+        print(f"horizon-collect: find-sessions.py not found or not executable at {BUNDLED_FIND_SESSIONS}", file=sys.stderr)
         return EXIT_NO_RETROSCOPE
     if args.debug:
         print(f"horizon-collect: retroscope={retroscope}", file=sys.stderr)
