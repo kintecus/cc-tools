@@ -58,6 +58,8 @@ Config fields used:
 
 ## Step 3: Execute Mode
 
+Plugin root for this run: `${CLAUDE_PLUGIN_ROOT}`. The reference files below write it as `{PLUGIN_ROOT}`; replace that with this absolute path. Claude Code fills in the plugin path only in this file, not in files read later, and the plugin-root variable is not set in the Bash tool.
+
 **For `session` mode:** Read `${CLAUDE_PLUGIN_ROOT}/commands/retro/references/session-mode.md` and follow the steps there.
 
 **For `today` or `yesterday` mode:** Read `${CLAUDE_PLUGIN_ROOT}/commands/retro/references/daily-mode.md` and follow the steps there.

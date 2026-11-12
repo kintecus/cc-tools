@@ -28,6 +28,8 @@ fi
 rm -rf "$CACHE_DIR"
 mkdir -p "$CACHE_DIR"
 cp -r "$REPO_ROOT"/{.claude-plugin,commands,hooks,scripts,CLAUDE.md,README.md} "$CACHE_DIR/"
+# Bytecode from local test runs is not plugin content (and is gitignored).
+find "$CACHE_DIR" -type d -name __pycache__ -prune -exec rm -rf {} +
 
 # Update version in installed_plugins.json
 SHA=$(git -C "$REPO_ROOT" rev-parse HEAD)

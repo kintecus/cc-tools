@@ -5,7 +5,7 @@
 
 ## Step 4: Find Sessions
 
-Where `{SCRIPT_DIR}` = `${CLAUDE_PLUGIN_ROOT}/scripts`.
+Where `{SCRIPT_DIR}` = `{PLUGIN_ROOT}/scripts`.
 
 **If config `scope` is `"project"` (default):**
 
@@ -98,7 +98,7 @@ for line in open(sys.argv[1]):
 
 ## Step 8: Generate Report
 
-1. Read `${CLAUDE_PLUGIN_ROOT}/commands/retro/references/report-template.md`
+1. Read `{PLUGIN_ROOT}/commands/retro/references/report-template.md`
 2. Generate report content based on the template and extracted session data. **If scope is `"all"`:** pass `is_cross_project: true` and the per-project breakdown data (from Step 6) to the report generator. The template title becomes `Cross-Project` instead of `{project_name}`, and the Overview includes a per-project breakdown table.
 3. **If config `model` is `haiku`**: use the Task tool with `subagent_type: general-purpose` and `model: haiku` to generate the report body. Pass the extracted session text and template as context.
 4. **If config `model` is `sonnet`**: use the Task tool with `subagent_type: general-purpose` and `model: sonnet` to generate the report body. Pass the extracted session text and template as context.

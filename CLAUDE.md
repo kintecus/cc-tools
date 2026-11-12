@@ -103,7 +103,7 @@ sync, at the cost of ~1-2s startup.
 ## Key conventions
 
 - **SKILL.md frontmatter**: every skill needs `name` and `description` in YAML frontmatter per [agentskills.io spec](https://agentskills.io/specification)
-- **Path references**: use `${CLAUDE_PLUGIN_ROOT}` for cross-skill references, never hardcoded paths
+- **Path references**: use `${CLAUDE_PLUGIN_ROOT}` for cross-skill references, never hardcoded paths. Claude Code substitutes it only in the SKILL.md body it loads, not in `references/` files read later, and never exports it to the Bash tool. Reference files use a `{PLUGIN_ROOT}` placeholder that the SKILL.md anchors (see `commands/retro/SKILL.md` Step 3)
 - **Hook scripts**: use `${CLAUDE_PLUGIN_ROOT}` in hooks.json, with `PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"` fallback in scripts
 - **SessionStart output**: the static effort-estimate rule block is deterministic and benefits from API prefix caching, so keep it terse but it is not the token-budget constraint. Do not add non-deterministic content (anything whose text changes during the day, e.g. the daily note that was injected until 0.26.0) — it breaks the prefix cache for every session
 - **No `skills/` directory**: all skills are user-invoked commands under `commands/`, so `plugin.json` points `commands` at `./commands/` and leaves `skills` empty (`[]`)

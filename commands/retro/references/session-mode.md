@@ -22,7 +22,7 @@ Find the JSONL file for the current session:
    ```
    **Never use the Read tool on `.jsonl` files — they can exceed 256 KB. Always use Bash commands.**
 
-2. Resolve script path — `SCRIPT_DIR` = `${CLAUDE_PLUGIN_ROOT}/scripts`.
+2. Resolve script path — `SCRIPT_DIR` = `{PLUGIN_ROOT}/scripts`.
 
 3. Run stats first:
    ```bash
@@ -35,7 +35,7 @@ Find the JSONL file for the current session:
    ```
    (No `--date` filter — include all messages regardless of when session started.)
 
-5. Read `${CLAUDE_PLUGIN_ROOT}/commands/retro/references/report-template.md`
+5. Read `{PLUGIN_ROOT}/commands/retro/references/report-template.md`
 
 6. Generate the report from the extracted text. Use `inherit` model (generate directly, no subagent — session reports don't benefit from a haiku subagent since Claude already has context).
 
@@ -45,7 +45,7 @@ Find the JSONL file for the current session:
 
 > ⚠️ **Note:** Context may be incomplete if the conversation was compacted or cleared. Use `logs` for reliable coverage of the full session.
 
-1. Read `${CLAUDE_PLUGIN_ROOT}/commands/retro/references/report-template.md`
+1. Read `{PLUGIN_ROOT}/commands/retro/references/report-template.md`
 2. Fill in the template from the current conversation history in context:
    - Review all visible conversation turns
    - Project = current working directory name

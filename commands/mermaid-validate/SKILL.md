@@ -21,7 +21,7 @@ Validate syntax of all Mermaid diagram blocks in markdown files.
    ```bash
    python3 "${CLAUDE_PLUGIN_ROOT}/scripts/validate-mermaid.py" <files>
    ```
-   `CLAUDE_PLUGIN_ROOT` is set automatically by Claude Code when running plugin commands.
+   Claude Code substitutes the absolute plugin path into this file when the command loads. The variable is not set in the Bash tool, so use the path as shown.
 
 3. Report results to the user:
    - If all diagrams are valid: confirm success with file and block count.
