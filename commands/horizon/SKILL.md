@@ -220,8 +220,8 @@ describe different weeks.
 Parse the JSON `rows`. This is **not** the same as the Footer `Hours` line:
 
 - Footer `Hours` = `week-stats.duration_minutes`, the sum of session wall-clock
-  spans across all (often concurrent) sessions. It massively overcounts and is
-  labeled as overlapping wall-clock.
+  spans across all (often concurrent) sessions, each span clipped to its day.
+  It overcounts concurrency and is labeled as overlapping wall-clock.
 - Timesheet `active_h` = inter-message gaps capped at 5 min per project. The
   **billable floor**: hands-on-CC time with idle removed. Conservative.
 
