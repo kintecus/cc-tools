@@ -41,7 +41,8 @@ overrides (under a `horizon` block, with defaults):
 ```json
 { "horizon": {
     "weekly": { "model": "sonnet", "deepModel": "opus" },
-    "bulkModel": "haiku"
+    "bulkModel": "haiku",
+    "projectsArchiveDir": "~/backups/claude-sessions/projects"
 } }
 ```
 
@@ -50,6 +51,22 @@ Resolve the week:
 - `--week YYYY-Www` (ISO 8601) or `--from / --to` flags
 - Default: current ISO week in the configured timezone
 - Reject future weeks with a clear error (exit 3)
+
+Resolve the session source (`PROJECTS_DIR`). Claude Code deletes session logs
+older than `cleanupPeriodDays` (default 30, set in `~/.claude/settings.json`),
+so live `~/.claude/projects` silently loses old weeks: the collector would
+report a busy week as nearly empty.
+
+- If `horizon.projectsArchiveDir` is set AND the window's last day is before
+  yesterday (local tz), set `PROJECTS_DIR` to it. An archive is typically a
+  daily copy, so it covers everything older than a day; live logs stay the
+  source for the current week.
+- Otherwise leave `PROJECTS_DIR` empty (live `~/.claude/projects`).
+- If `PROJECTS_DIR` is empty and the window's first day is older than
+  `cleanupPeriodDays`, warn before collecting: `sessions before {cutoff} were
+  deleted by Claude Code; this retro will be incomplete. Set
+  horizon.projectsArchiveDir to read from an archive.` Do not present an
+  incomplete week as a quiet one.
 
 Resolve scope from config (`scope: "project"` or `"all"`, default `"project"`).
 Cross-project (`"all"`) routes output under `_cross-project/`.
@@ -69,6 +86,10 @@ if [ -z "$RETROSCOPE_SCRIPT" ]; then
 fi
 [ -n "$RETROSCOPE_SCRIPT" ] || { echo "retroscope not found (install tribe-coding/retroscope)"; exit 2; }
 ```
+
+`--projects-dir` and the skip of reply-less sessions need retroscope >= 0.4.0.
+An older version rejects the flag; the collector then exits 2 with an upgrade
+hint rather than returning an empty week.
 
 ## Step 3: Cache check
 
@@ -91,8 +112,13 @@ python3 "${CLAUDE_PLUGIN_ROOT}/commands/horizon/scripts/horizon-collect.py" \
   --tz "$TZ" \
   --storage-dir "$STORAGE_DIR" \
   --retroscope-script "$RETROSCOPE_SCRIPT" \
+  ${PROJECTS_DIR:+--projects-dir "$PROJECTS_DIR"} \
   ${DEBUG:+--debug}
 ```
+
+Sessions where Claude never replied (local slash commands only, or automated
+`claude -p "/usage"` probes from usage-tracker apps) are dropped at discovery,
+so they don't inflate session counts or show up as junk `cwd`s.
 
 The collector produces a tempdir at `${TMPDIR:-/tmp}/horizon-{YYYY-Www}-{pid}/`
 containing:
@@ -111,12 +137,27 @@ with `source != "empty"`, launch one Haiku Task call **per part** in a single
 parallel message. Total call count = sum of part counts across the week
 (typically 7-20 calls; a single message can carry all of them).
 
+**Subagent I/O contract (applies to Steps 5, 5b, and 6):**
+
+- **Inputs go by path, not inline.** Parts run up to `--max-day-bytes`
+  (~200 KB). Pasting them into the Task prompt costs the main session that many
+  output tokens per call. Pass absolute paths and have the subagent read them
+  with `/bin/cat` (plain `cat` may be aliased), in chunks if large.
+- **Outputs come back as the subagent's final reply text.** Subagents must
+  NOT write files. The harness can reject subagent Write calls for report-like
+  files ("return findings as text"), and a subagent that loses its write
+  still reports success. The main session saves each returned record to
+  `{out_dir}/rec-day-{i}[-part-{j}].json` and writes the synthesis output
+  itself (Step 7).
+
 Subagent prompt (use `general-purpose` subagent type with model `haiku`):
 
 ```
 You are summarizing one chunk of a developer's Claude Code activity into a
 structured JSON record. This may be a full day or one part of a multi-part
-day; the schema is the same either way. Output ONLY a JSON object matching:
+day; the schema is the same either way. Read the input files with
+`/bin/cat <path>` (read all of the prose file, in chunks if it is large).
+Reply with ONLY a JSON object matching (do not write any files):
 
 {
   "intent": "1-2 sentences on what the user was trying to do in this chunk",
@@ -132,11 +173,8 @@ If a section is empty, return [].
 
 DAY: {date} ({weekday})
 PART: {part_index+1} of {total_parts}    (omit this line if total_parts == 1)
-PROSE:
-{clean_prose_for_this_part}
-
-STATS (whole-day, not per-part):
-{stats_json}
+PROSE FILE: {out_dir}/{part_filename}
+STATS FILE (whole-day, not per-part): {out_dir}/day-{i}.stats.json
 ```
 
 For days with `source == "empty"`, skip the LLM call and emit:
@@ -159,12 +197,15 @@ and preserving distinct ones. Aim for the same bullet caps (≤5 shipped, ≤3
 stalled, etc.) — if the parts collectively exceed those caps, keep the most
 load-bearing items and drop near-duplicates.
 
-Output ONLY the merged JSON object.
+Reply with ONLY the merged JSON object. Do not write any files.
 
 DAY: {date} ({weekday})
 PART RECORDS (JSON, in order):
 {part_records_json_array}
 ```
+
+Part records are small, so inlining them is fine here. Save the reply to
+`{out_dir}/rec-day-{i}.json`.
 
 ## Step 5c: Compute the timesheet (deterministic, no LLM)
 
@@ -175,8 +216,12 @@ before synthesis, alongside the other deterministic collection.
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/commands/horizon/scripts/horizon-timesheet.py" \
-  --week "$WEEK" --tz "$TZ" --format json
+  --week "$WEEK" --tz "$TZ" --format json \
+  ${PROJECTS_DIR:+--projects-dir "$PROJECTS_DIR"}
 ```
+
+Use the same `PROJECTS_DIR` as Step 4, or the timesheet and the narrative
+describe different weeks.
 
 Parse the JSON `rows`. This is **not** the same as the Footer `Hours` line:
 
@@ -227,6 +272,12 @@ Inputs:
   - Skip if missing
 - Output template (see `references/output-template.md`)
 
+Before the call, the main session writes the 7 day-records as one dated JSON
+array to `{out_dir}/day-records.json`, the timesheet JSON to
+`{out_dir}/timesheet.json`, and the capped prior-week and profile snippets to
+`{out_dir}/prior-week.md` / `{out_dir}/memory-snippet.md`. Pass these by path,
+per the Step 5 I/O contract. Omit a path line when that input doesn't exist.
+
 Synthesis prompt (use `general-purpose` subagent with the resolved model):
 
 ```
@@ -234,7 +285,9 @@ You are writing a weekly retrospective for the user. The 7 per-day records
 below are pre-summarized; combine them into a coherent narrative that
 surfaces patterns, drift, and useful signals — not an activity log.
 
-Output strictly to this Markdown template (no preamble, no postscript):
+Read every input file below with `/bin/cat <path>`. Reply with ONLY the
+rendered Markdown, strictly to this template (no preamble, no postscript).
+Do not write any files; the caller saves your reply.
 
 {output_template}
 
@@ -264,23 +317,19 @@ Anti-confabulation rules (load-bearing):
   contributed a `waiting_on` item.
 
 WEEK: {YYYY-Www} ({Mon date}–{Sun date})
-DAY RECORDS (JSON, in order):
-{day_records}
-
-WEEK STATS (JSON):
-{week_stats}
-
-TIMESHEET (JSON rows, may be absent if --no-timesheet):
-{timesheet}
-
-PRIOR WEEK (markdown, may be empty):
-{prior_week}
-
-USER PROFILE (markdown, may be empty):
-{memory_snippet}
+DAY RECORDS (JSON array, in order): {out_dir}/day-records.json
+WEEK STATS (JSON): {out_dir}/week-stats.json
+TIMESHEET (JSON rows; line absent if --no-timesheet): {out_dir}/timesheet.json
+PRIOR WEEK (markdown; line absent if none): {out_dir}/prior-week.md
+USER PROFILE (markdown; line absent if none): {out_dir}/memory-snippet.md
 ```
 
 ## Step 7: Render + write to storage repo
+
+The synthesis reply IS the retro. The main session writes it; never delegate
+this write to a subagent (see the Step 5 I/O contract). If the reply carries
+anything around the Markdown (a preamble, a "written" note), strip it so the
+file starts at the frontmatter `---`.
 
 Compute teaser (first non-empty bullet from synthesis output's `## Themes`).
 

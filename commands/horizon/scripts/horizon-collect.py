@@ -105,8 +105,14 @@ def resolve_retroscope(explicit: str | None) -> Path | None:
 # --- Session listing ---------------------------------------------------------
 
 
+class SessionListingError(RuntimeError):
+    """find-sessions.py failed. Never treat this as an empty day: a silent empty
+    week is indistinguishable from a quiet one and produces a confident wrong retro."""
+
+
 def list_sessions_for_date(retroscope: Path, day: date, scope: str, tz: str,
-                            project_dir: str | None) -> list[tuple[str, Path]]:
+                            project_dir: str | None,
+                            projects_dir: str | None = None) -> list[tuple[str, Path]]:
     """Return list of (project_label, jsonl_path) for the given day."""
     date_str = day.isoformat()
     cmd = ["python3", str(retroscope), date_str, "--tz", tz]
@@ -114,12 +120,19 @@ def list_sessions_for_date(retroscope: Path, day: date, scope: str, tz: str,
         cmd.append("--all-projects")
     elif project_dir:
         cmd.extend(["--project-dir", project_dir])
+    if projects_dir:
+        cmd.extend(["--projects-dir", projects_dir])
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    except FileNotFoundError:
-        return []
+    except FileNotFoundError as e:
+        raise SessionListingError(f"cannot run {retroscope}: {e}")
     if result.returncode != 0:
-        return []
+        hint = ""
+        if projects_dir and "unrecognized arguments" in result.stderr:
+            hint = " (--projects-dir needs retroscope >= 0.4.0; update the tribe-coding marketplace)"
+        raise SessionListingError(
+            f"find-sessions.py failed for {date_str} (rc={result.returncode}){hint}: "
+            f"{result.stderr.strip()}")
     out: list[tuple[str, Path]] = []
     for line in result.stdout.splitlines():
         line = line.strip()
@@ -381,6 +394,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tz", required=True)
     p.add_argument("--storage-dir", required=True)
     p.add_argument("--retroscope-script", default=None)
+    p.add_argument("--projects-dir", default=None,
+                   help="Session-log root passed to find-sessions.py instead of ~/.claude/projects "
+                        "(an archive that outlives cleanupPeriodDays). Needs retroscope >= 0.4.0")
     p.add_argument("--out-dir", default=None)
     p.add_argument("--max-day-bytes", type=int, default=200_000,
                    help="Split per-day prose into parts when it exceeds this many UTF-8 bytes (default: 200000 ≈ 50K tokens)")
@@ -434,7 +450,12 @@ def main(argv: list[str] | None = None) -> int:
         prose_path = out_dir / f"day-{offset}.txt"
         stats_path = out_dir / f"day-{offset}.stats.json"
 
-        sessions = list_sessions_for_date(retroscope, day, args.scope, args.tz, args.project_dir)
+        try:
+            sessions = list_sessions_for_date(retroscope, day, args.scope, args.tz,
+                                              args.project_dir, args.projects_dir)
+        except SessionListingError as e:
+            print(f"horizon-collect: {e}", file=sys.stderr)
+            return EXIT_NO_RETROSCOPE
         session_paths = [path for _, path in sessions]
 
         # Determine the "project" label for daily-summary lookup (used in scope=project).

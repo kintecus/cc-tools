@@ -182,6 +182,7 @@ def session_cwd_and_timestamps(
     """
     first_cwd: str | None = None
     cur_cwd: str | None = None
+    has_assistant = False
     out: list[tuple[datetime, str | None]] = []
     try:
         with open(jsonl_path, encoding="utf-8") as f:
@@ -193,6 +194,8 @@ def session_cwd_and_timestamps(
                     obj = json.loads(line)
                 except json.JSONDecodeError:
                     continue
+                if obj.get("type") == "assistant":
+                    has_assistant = True
                 if obj.get("cwd"):
                     cur_cwd = obj["cwd"]
                     if first_cwd is None:
@@ -209,6 +212,11 @@ def session_cwd_and_timestamps(
                 if start_utc <= dt < end_utc:
                     out.append((dt, cur_cwd))
     except OSError:
+        return first_cwd, []
+    if not has_assistant:
+        # Claude never replied: local slash commands only (/usage, /clear) or an
+        # automated usage probe. No work happened, so nothing is billable. Mirrors
+        # retroscope find-sessions.py >= 0.4.0, which skips the same sessions.
         return first_cwd, []
     out.sort(key=lambda p: p[0])
     return first_cwd, out
