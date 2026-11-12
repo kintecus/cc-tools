@@ -29,6 +29,12 @@ Output: tab-separated `project_name\tfile_path`, one per line. Parse into a map:
 
 If no sessions found: inform user and stop.
 
+**Resolve the report date.** `{YYYY-MM-DD}` is the day being reported (today, or today minus one day for `yesterday`) in `config.timezone`. Compute it instead of guessing; pass `0` for today or `1` for yesterday (an empty timezone argument means the system timezone):
+```bash
+PYTHONPATH="" python3 -c "import sys; from datetime import datetime, timedelta; from zoneinfo import ZoneInfo; tz = ZoneInfo(sys.argv[2]) if sys.argv[2] else None; print((datetime.now(tz) - timedelta(days=int(sys.argv[1]))).date())" {0|1} "{config.timezone}"
+```
+The session lists above include every session whose first-to-last span overlaps the day, so a session resumed weeks later is listed on days it was never touched. Steps 6 and 7 therefore scope all numbers and content to this date.
+
 ## Step 5: Check Cache
 
 **If scope is `"project"` (default):**
@@ -57,10 +63,15 @@ Otherwise, if the file exists:
 
 For each session file, run:
 ```bash
-PYTHONPATH="" python3 {SCRIPT_DIR}/find-sessions.py --stats "{session_file}"
+PYTHONPATH="" python3 {SCRIPT_DIR}/find-sessions.py --stats "{session_file}" \
+  --date "{YYYY-MM-DD}" --tz "{config.timezone}"
 ```
 
-Collect: token totals, tool counts, duration, branches, models.
+`--date` limits the stats to records timestamped on that day (local to `--tz`; omit `--tz` if no timezone is configured). Without it, a session resumed across several days reports its whole multi-day span, tokens, and cost on every day it is listed.
+
+**Drop sessions with no in-day Claude reply.** If a session's stats show `message_counts.assistant` of `0`, nothing happened in it on this day (typically a stray record on a resumed session). Remove it from the session count, every total, the per-project aggregates, and the Step 7 extraction.
+
+Collect: token totals, tool counts, duration (`time_range.duration_minutes`), branches, models.
 
 From each stats JSON, collect both `estimated_cost_usd` (actual cost with cache discounts) and `naive_cost_usd` (all input tokens at full rate, matches Claude Code UI display). Show both in the Productivity Metrics section.
 

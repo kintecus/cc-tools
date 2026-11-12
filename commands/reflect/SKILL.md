@@ -44,17 +44,21 @@ Use the retroscope session finder to get time and cost data. This is required - 
 
 ```bash
 FINDER="${CLAUDE_PLUGIN_ROOT}/scripts/find-sessions.py"
+TZ_NAME=Europe/Warsaw
+DAY=$(TZ="$TZ_NAME" date +%F)
 
 # Get today's session files
-SESSION_FILES=$(python3 "$FINDER" today --tz Europe/Warsaw 2>/dev/null)
+SESSION_FILES=$(python3 "$FINDER" today --tz "$TZ_NAME" 2>/dev/null)
 
-# For each session, get stats
+# For each session, get stats for today only
 for f in $SESSION_FILES; do
-  python3 "$FINDER" --stats "$f" 2>/dev/null
+  python3 "$FINDER" --stats "$f" --date "$DAY" --tz "$TZ_NAME" 2>/dev/null
 done
 ```
 
-Stats JSON includes: `duration_seconds`, `total_input_tokens`, `total_output_tokens`, `estimated_cost_usd`, `naive_cost_usd`, `tool_counts`, `models`, `cwd`, `branches`.
+`--date` limits each session's stats to records timestamped today. The session list includes every session whose first-to-last span overlaps today, so a session resumed after weeks would otherwise report its whole multi-week duration and cost. Skip any session whose stats show `message_counts.assistant` of `0`: nothing happened in it today, so it counts toward neither the session count nor the totals.
+
+Stats JSON includes: `time_range.duration_minutes`, `token_usage` (`input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`), `message_counts`, `estimated_cost_usd`, `naive_cost_usd`, `tool_counts`, `models`, `cwd`, `branches`. "Time spent" in Step 3 sums `time_range.duration_minutes` per project.
 
 Group sessions by project using the `cwd` field:
 - `*/satori/*` -> `[[Satori Ads]]`
