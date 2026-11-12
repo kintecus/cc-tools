@@ -1,0 +1,83 @@
+<!-- Derived from the `retroscope` plugin (0.3.1) in Tribe Coding claude-plugins, MIT License,
+     Copyright (c) 2025 Tribe Coding. https://github.com/artem-from-ua/claude-plugins/tree/bcc769c14690b8d9da0230f8b3b34d551bb016e9/plugins/retroscope -->
+
+# Retroscope Report Template
+
+Use this template when generating retrospective reports. Fill in all sections based on the session data provided. Replace placeholders in `{braces}` with actual content.
+
+---
+
+```markdown
+# 📋 Retroscope: {Project} — {Date}
+
+_(For cross-project reports, use `Cross-Project` as {Project}.)_
+
+## 📊 Overview
+
+| Metric | Value |
+|--------|-------|
+| ⏱️ Duration | {time range, e.g. "10:15–13:42 (3h 27m)"} |
+| 💬 Sessions | {count} |
+| 🤖 Model | {model name} |
+| 🌿 Branch(es) | {comma-separated branches} |
+
+_(For cross-project reports, add a per-project breakdown table:)_
+
+| Project | Sessions | Duration | Est. Cost |
+|---------|----------|----------|-----------|
+| {project_name} | {count} | {duration} | ${cost} |
+| **Total** | **{total}** | **{total_duration}** | **${total_cost}** |
+
+## 🎯 Performance Assessment
+
+{2–3 sentences on productivity, focus, and efficiency based on the session flow.}
+
+**Activity breakdown:** {list primary activity types — e.g. coding 60%, debugging 25%, docs 15%}
+
+## 📝 Tasks & Outcomes
+
+| Status | Task | Project | Links |
+|--------|------|---------|-------|
+| ✅ Done | {completed task} | {project} | 📌 PR #N · 🔀 `branch` |
+| 🚧 In progress | {ongoing work} | {project} | 🔀 `feature/foo` |
+| ❓ Open | {unresolved question} | {project} | 🐛 Issue #N |
+| 🔬 Research | {topic investigated} | {project} | 💬 `uuid-short` |
+| ✔️ Decision | {what was decided} | {project} | 📋 `plan-file.md` |
+| ❌ Abandoned | {abandoned task and reason} | {project} | — |
+| 💡 Idea | {idea for future} | {project} | — |
+| ⚠️ Blocked | {what is blocked and why} | {project} | 🐛 Issue #N |
+
+_(Include only rows that apply. Remove unused status rows. For single-project reports, the Project column may be omitted.)_
+
+**Link icons:** 📌 PR · 🔀 Branch · 💬 Session · 📋 Plan · 🐛 Issue/Discussion
+Use `·` (middle dot) to separate multiple links in one cell.
+
+## 📄 Documentation Changes
+
+| Change | File(s) |
+|--------|---------|
+| {short description of substantial change} | `{file path}` |
+
+_(Include only significant documentation changes: new docs, structural updates, important clarifications. Skip trivial edits like typo fixes.)_
+
+## 💬 Communication Insights
+
+### User side
+- {Suggestions for more effective prompting, task descriptions, or context provision}
+
+### Claude Code config
+- {Suggested CLAUDE.md improvements, plugin adjustments, or settings tweaks based on patterns observed}
+
+## 📈 Productivity Metrics
+
+- **Estimated cost:** ${estimated_cost_usd} (with cache discounts) / ${naive_cost_usd} (without cache discounts, as shown in Claude Code UI)
+- **Token usage:** {input / output / cache totals}
+- **Tool breakdown:** {top tools — e.g. "Read: 42, Bash: 18, Edit: 15, Write: 7"}
+- **Session pacing:** {average time between exchanges or notable patterns}
+
+## 🔮 Next Steps
+
+- {Actionable follow-up item 1}
+- {Open question to address next session}
+- {Reminder or deferred work}
+```

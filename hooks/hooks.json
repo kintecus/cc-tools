@@ -15,6 +15,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/validate-on-edit.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
     ]
   }
 }

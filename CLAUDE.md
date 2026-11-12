@@ -22,16 +22,19 @@ A Claude Code plugin (`tools@kintecus`) packaging personal productivity skills: 
 
 ## Plugin structure
 
-Follows the [tribe-coding plugin conventions](https://github.com/tribe-coding/claude-plugins):
+Follows the [Tribe Coding plugin conventions](https://github.com/artem-from-ua/claude-plugins/tree/bcc769c14690b8d9da0230f8b3b34d551bb016e9):
 
 ```
 .claude-plugin/
   plugin.json           # manifest (name, version, commands; skills is empty [])
   marketplace.json      # marketplace registration
 hooks/
-  hooks.json            # SessionStart hook definition
+  hooks.json            # SessionStart + PostToolUse(Write|Edit) hook definitions
 scripts/
-  inject-rules.sh       # SessionStart: effort-estimate rule
+  inject-rules.sh       # SessionStart: static rules (effort estimate, Mermaid conventions, /retro reminder)
+  find-sessions.py      # session discovery/extract/stats; shared by /retro, /horizon, /reflect (executable)
+  validate-mermaid.py   # POSTs mermaid blocks to Kroki; exit 1 on parse errors
+  validate-on-edit.sh   # PostToolUse: runs the validator on edited .md, exit 2 + stderr on errors
   statusline.sh         # the compact single-line statusline (reads the payload on stdin)
   setup-statusline.sh   # SessionStart: syncs statusline.sh -> ~/.claude/statusline-tools.sh
 commands/
@@ -74,6 +77,13 @@ commands/
     SKILL.md
     calendar-ek.swift   # EventKit write CLI (executable, `swift` shebang; bundled)
   statusline/           # configure/preview/troubleshoot the bundled statusline
+    SKILL.md
+  retro/                # session/daily retrospective (derived from retroscope)
+    SKILL.md
+    references/         # daily-mode.md, session-mode.md, report-template.md
+  mermaid-diagram-guide/  # diagram type + styling guide (was a skills/ entry upstream)
+    SKILL.md
+  mermaid-validate/     # validate all mermaid blocks in the project
     SKILL.md
 ```
 
@@ -150,6 +160,27 @@ keep the attribution header when editing, and keep the credits note in README.md
   twin is what the width math reads, so a segment without one breaks progressive
   hiding.
 
+## Retroscope and Mermaid (absorbed in 0.32.0)
+
+`scripts/find-sessions.py` and `commands/retro/` are derived from `retroscope`
+in [Tribe Coding claude-plugins](https://github.com/artem-from-ua/claude-plugins/tree/bcc769c14690b8d9da0230f8b3b34d551bb016e9/plugins/retroscope) (MIT, (c) 2025 Tribe
+Coding) - keep the attribution headers. The script lives in `scripts/`, not under
+`commands/retro/`, because it has three consumers: `/retro` (via
+`${CLAUDE_PLUGIN_ROOT}/scripts`), `/horizon` (`horizon-collect.py` resolves it from
+its own `__file__`, since `CLAUDE_PLUGIN_ROOT` is not exported to Bash-tool
+processes; `RETROSCOPE_SCRIPT` / `--retroscope-script` still override), and
+`/reflect`. Keep it executable: horizon checks `-x`. The retroscope SessionEnd
+"suggest /retro" hook and setup wizard were deliberately left behind; config is
+edited by hand (README, "/retro config").
+
+Mermaid: only the PostToolUse validation, the rules, and the two commands moved.
+The upstream plugin also injected blocks into project pre-commit hooks and set
+`core.hooksPath`; that was dropped on purpose - do not reintroduce it. The
+PostToolUse hook must `exit 2` with errors on stderr to reach Claude (exit-0
+stdout from PostToolUse only goes to the debug log), and must stay fail-soft on
+network errors. `horizon-extract.py` drops hook banners by the `## Mermaid
+Diagrams` and `## Retroscope` headings, so keep those in `inject-rules.sh`.
+
 ## Obsidian CLI dependency
 
 The daily-note, obsidian-vault, and clippings-digest skills require the Obsidian CLI (`/Applications/Obsidian.app/Contents/MacOS/obsidian`, v1.12+). Obsidian must be running.
@@ -172,7 +203,10 @@ The daily-note, obsidian-vault, and clippings-digest skills require the Obsidian
 | `/podcast-digest` | "podcast digest", "digest my podcasts", "summarize recent podcasts", "what have I listened to" | Editorial digest of recent `pidcast` podcast/YouTube transcripts. Resolves the transcripts dir via `pidcast info`, filters to genuine podcast/YT by front-matter `url` (skips meeting recordings, tests, prior digests, analysis side-files), fans out to parallel Haiku subagents, synthesizes a through-line, and writes an HTML editorial page + Markdown archive note into the Obsidian vault (`03 - RESOURCES/Podcasts` default, resolved via `obsidian-cli`). Windowed by recency (default 30d); never overwrites |
 | `/ask-gemini` | "ask gemini", "what does gemini think", research needing current data | Delegate a question to Google Gemini (Antigravity CLI default, AI Studio API fallback) and return the answer inline |
 | `/yt-transcript` | "what did X say in this video", "find the quote in this talk", "search/summarize this YouTube video" | Fetch a YouTube caption track via yt-dlp, clean/dedupe it, and search/quote/summarize spoken content that web search can't see. Bundled script |
-| `/horizon` | "weekly retro", "horizon week", "how was my week" (explicit-only) | Long-horizon retrospective. v1 = weekly: Haiku per-day summaries + Sonnet synthesis (Opus with `--deep`). Includes a deterministic Timesheet section (`horizon-timesheet.py`, Step 5c) for defensible per-project billable hours; `--no-timesheet` to skip. Writes to retroscope storage repo + mirrors to vault. Reads an archive of session logs (`horizon.projectsArchiveDir`) for windows ending before yesterday, since Claude Code deletes logs past `cleanupPeriodDays`; needs retroscope >= 0.4.0. Subagents read inputs by path and return text; only the main session writes files. |
+| `/retro` | "retro", "what did I do", "daily report" | Session (`/retro session`, display only) or daily (`today`/`yesterday`, saved + committed to `storageDir`) retrospective via the bundled `scripts/find-sessions.py`. Config in `~/.claude/retroscope.json` |
+| `/mermaid-diagram-guide` | before any Mermaid diagram (rule-driven) | Diagram type selection + styling/title/accessibility conventions |
+| `/mermaid-validate` | "validate mermaid" | Validate all mermaid blocks in project markdown via Kroki |
+| `/horizon` | "weekly retro", "horizon week", "how was my week" (explicit-only) | Long-horizon retrospective. v1 = weekly: Haiku per-day summaries + Sonnet synthesis (Opus with `--deep`). Includes a deterministic Timesheet section (`horizon-timesheet.py`, Step 5c) for defensible per-project billable hours; `--no-timesheet` to skip. Writes to retroscope storage repo + mirrors to vault. Reads an archive of session logs (`horizon.projectsArchiveDir`) for windows ending before yesterday, since Claude Code deletes logs past `cleanupPeriodDays`; uses the bundled `scripts/find-sessions.py` (>= 0.4.0 for `--projects-dir`). Subagents read inputs by path and return text; only the main session writes files. |
 | `/harvest-memory` | explicit invocation only | Promote cross-project facts from per-project auto-memory stores into the global memory store (`~/.claude/global-memory/`, loaded everywhere via `@import`). Propose-then-confirm; writes nothing without approval. |
 | `/commit` | PROACTIVE on git commits | Conventional commits with user-facing impact framing |
 | `/statusline` | explicit invocation only | Configure, preview, or troubleshoot the bundled single-line statusline. Segments: 5h/7d limits, session cost, model, effort (hidden at `medium`), context tokens and % with absolute-token bands, 1M marker, repo, branch, open-PR badge. All from the stdin payload except the git branch - no network, no credentials. See the statusline section above. |

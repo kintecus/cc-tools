@@ -26,7 +26,7 @@
 #
 # Derived from the `statusline-compact` plugin in Tribe-Coding/claude-plugins,
 # MIT License, Copyright (c) 2025 Tribe Coding.
-# https://github.com/Tribe-Coding/claude-plugins
+# https://github.com/artem-from-ua/claude-plugins/tree/bcc769c14690b8d9da0230f8b3b34d551bb016e9/plugins/statusline-compact
 
 input=$(cat)
 
