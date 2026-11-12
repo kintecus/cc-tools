@@ -176,6 +176,7 @@ standalone for ad-hoc billing.
 --project LABEL                    # restrict to one project label (e.g. satori)
 --cap MINUTES                      # idle-gap cap, default 5
 --projects-dir PATH                # default ~/.claude/projects
+--labels-config PATH               # private horizon.projectLabels; default ~/.claude/retroscope.json
 --format {table,csv,json}          # default table
 ```
 

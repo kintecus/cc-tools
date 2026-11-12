@@ -93,7 +93,34 @@ def _local_span(start_d: date, end_d: date, tz: ZoneInfo, label: str):
 # --- Project labeling (mirrors horizon-collect.project_label_from_cwd) --------
 
 
-def project_label_from_cwd(cwd: str) -> str:
+DEFAULT_LABELS_CONFIG = os.path.expanduser("~/.claude/retroscope.json")
+
+# pm-workspace sub-projects that fold into a build repo's bucket. Personal or
+# client sub-projects belong in private config (horizon.projectLabels.pmWorkspaceFold),
+# never here: this repo is public.
+BUILTIN_PM_FOLD = {"satori-ads": "satori"}
+
+
+def load_project_labels(path: str) -> tuple[dict[str, str], list[tuple[str, str]]]:
+    """Read private label overrides from the retroscope config.
+
+    ``horizon.projectLabels`` holds ``pmWorkspaceFold`` ({sub-project: label})
+    and ``markers`` ([[cwd-substring, label], ...], checked before the built-in
+    markers). They keep client and side-project names out of this public repo.
+    A missing or unreadable file means no overrides.
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            cfg = (json.load(f).get("horizon") or {}).get("projectLabels") or {}
+    except (OSError, ValueError):
+        return {}, []
+    fold = {str(k): str(v) for k, v in (cfg.get("pmWorkspaceFold") or {}).items()}
+    markers = [(str(m), str(l)) for m, l in (cfg.get("markers") or [])]
+    return fold, markers
+
+
+def project_label_from_cwd(cwd: str, pm_fold: dict[str, str] | None = None,
+                           extra_markers: list[tuple[str, str]] | None = None) -> str:
     """Derive a short project label from a cwd path. Kept in sync with horizon-collect.py.
 
     Extended with the personal/ sub-project markers that horizon's coarser
@@ -101,14 +128,16 @@ def project_label_from_cwd(cwd: str) -> str:
 
     pm-workspace is a multi-project root: a session launched from (or that cds
     into) ``pm-workspace/projects/<name>`` is real work on that sub-project, not
-    generic "pm-workspace" time. The sub-project markers below MUST be ordered
-    before the bare ``/pm-workspace`` catch-all so the deeper path wins. They
-    fold into the same buckets as the corresponding build repos where one
-    exists (satori-ads strategy -> satori; side-project-b -> side-project-a), keep a
-    dedicated bucket where none does (side-project-c -> spc), and auto-split any
-    future sub-project under a ``pm/<name>`` label rather than silently lumping
-    it into the root. Bare pm-workspace (root, exercises/, .claude/skills/)
-    stays "pm-workspace".
+    generic "pm-workspace" time. The sub-project check MUST run before the bare
+    ``/pm-workspace`` catch-all so the deeper path wins. Sub-projects fold into
+    the same bucket as the matching build repo where one exists (satori-ads
+    strategy -> satori; more via ``pm_fold``), and any other sub-project
+    auto-splits under a ``pm/<name>`` label rather than silently lumping into
+    the root. Bare pm-workspace (root, exercises/, .claude/skills/) stays
+    "pm-workspace".
+
+    ``extra_markers`` (from private config) are checked before the built-in
+    markers, so a private, more specific marker wins.
     """
     if not cwd:
         return "unknown"
@@ -117,25 +146,19 @@ def project_label_from_cwd(cwd: str) -> str:
     pm_marker = "/pm-workspace/projects/"
     if pm_marker in cwd:
         sub = cwd.split(pm_marker, 1)[1].split("/", 1)[0]
-        pm_fold = {
-            "satori-ads": "satori",      # PM/strategy folds into the Satori total
-            "side-project-b": "side-project-a",  # Side Project A codebase folds into side-project-a
-            "side-project-c": "spc",       # no build repo elsewhere — own bucket
-        }
+        fold = {**BUILTIN_PM_FOLD, **(pm_fold or {})}
         if sub:
-            return pm_fold.get(sub, f"pm/{sub}")
+            return fold.get(sub, f"pm/{sub}")
     # "Contains" markers, longest/most-specific first. A deep cwd
-    # (kintecus.github.io/static/fonts, client/side-project-a/db) must roll up to
-    # its parent project, not split off into a bare-basename bucket — so any
+    # (kintecus.github.io/static/fonts, satori/walletsvc/frontend) must roll up
+    # to its parent project, not split off into a bare-basename bucket — so any
     # multi-project root whose subdirs you cd into needs a marker here.
     for marker, label in [
+        *(extra_markers or []),
         ("/satori/", "satori"),
-        ("/client/side-project-a", "side-project-a"),
         ("/client-project/", "client"),
         ("/personal/earshot", "earshot"),
         ("/personal/pidcast", "pidcast"),
-        ("/personal/side-project-a", "side-project-a"),
-        ("/personal/side-project-b", "side-project-b"),
         ("/personal/kintecus.github.io", "kintecus.github.io"),
         ("/cc-tools", "cc-tools"),
         ("/puch", "puch"),
@@ -175,9 +198,9 @@ def session_cwd_and_timestamps(
     current at that moment. The first-seen cwd is still returned for callers
     that only need a coarse session label.
 
-    The project DIR name (-Users-you-code-foo-bar) is a lossy dash-encoding
+    The project DIR name (-Users-me-code-foo-bar) is a lossy dash-encoding
     that cannot be reliably inverted — a literal hyphen in a path segment
-    (side-project-a, side-project-b) is indistinguishable from a path separator — which
+    (job-hunt, music-agent) is indistinguishable from a path separator — which
     is why we read the verbatim ``cwd`` field instead.
     """
     first_cwd: str | None = None
@@ -232,7 +255,9 @@ def merged_union_seconds(intervals: list[tuple[float, float]]) -> float:
 
 
 def compute(start_utc: datetime, end_utc: datetime, cap_seconds: int,
-            projects_dir: str, only_project: str | None) -> dict:
+            projects_dir: str, only_project: str | None,
+            pm_fold: dict[str, str] | None = None,
+            extra_markers: list[tuple[str, str]] | None = None) -> dict:
     active = defaultdict(float)
     sessions = defaultdict(set)
     msgs = defaultdict(int)
@@ -246,7 +271,7 @@ def compute(start_utc: datetime, end_utc: datetime, cap_seconds: int,
         # Bill each inter-message gap to the label of the cwd active at the gap's
         # START, and count a message toward whatever label was current for it.
         for (a, cwd_a), (b, _cwd_b) in zip(pairs, pairs[1:]):
-            label = project_label_from_cwd(cwd_a or "")
+            label = project_label_from_cwd(cwd_a or "", pm_fold, extra_markers)
             if only_project and label != only_project:
                 continue
             gap = (b - a).total_seconds()
@@ -258,7 +283,7 @@ def compute(start_utc: datetime, end_utc: datetime, cap_seconds: int,
         # The final message has no following gap; still attribute it for the
         # session/message counts so a one-message tail isn't dropped.
         _last_ts, last_cwd = pairs[-1]
-        last_label = project_label_from_cwd(last_cwd or "")
+        last_label = project_label_from_cwd(last_cwd or "", pm_fold, extra_markers)
         if not (only_project and last_label != only_project):
             sessions[last_label].add(jf)
             msgs[last_label] += 1
@@ -330,6 +355,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--project", default=None, help="restrict to one project label (e.g. satori)")
     p.add_argument("--cap", type=int, default=5, help="idle-gap cap in minutes (default 5)")
     p.add_argument("--projects-dir", default=DEFAULT_PROJECTS_DIR)
+    p.add_argument("--labels-config", default=DEFAULT_LABELS_CONFIG,
+                   help="JSON config with private horizon.projectLabels overrides "
+                        "(default ~/.claude/retroscope.json)")
     p.add_argument("--format", choices=["table", "csv", "json"], default="table")
     args = p.parse_args(argv)
 
@@ -356,7 +384,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"horizon-timesheet: window {label} is in the future", file=sys.stderr)
         return EXIT_EMPTY
 
-    result = compute(start, end, args.cap * 60, args.projects_dir, args.project)
+    pm_fold, extra_markers = load_project_labels(args.labels_config)
+    result = compute(start, end, args.cap * 60, args.projects_dir, args.project,
+                     pm_fold, extra_markers)
     if not result["rows"]:
         print(f"horizon-timesheet: no session activity in {label}"
               + (f" for project '{args.project}'" if args.project else ""), file=sys.stderr)

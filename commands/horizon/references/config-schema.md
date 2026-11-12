@@ -38,6 +38,26 @@
 | `--dry-run` | Compute + print, no commit, no vault write. |
 | `--debug` | Log resolved paths, byte ratios, dropped block-type counts. |
 
+## Private project labels (timesheet)
+
+`horizon-timesheet.py` ships only generic project labels. Client and side-project
+names belong in your private config, never in this repo, which is public. Add them
+under `horizon.projectLabels` in `~/.claude/retroscope.json`:
+
+```json
+{ "horizon": { "projectLabels": {
+    "pmWorkspaceFold": { "client-x-strategy": "client-x" },
+    "markers": [ ["/client/client-x", "client-x"] ]
+} } }
+```
+
+- `pmWorkspaceFold` maps a `pm-workspace/projects/<name>` sub-project to the
+  bucket of its build repo. Unmapped sub-projects become `pm/<name>`.
+- `markers` are `[cwd-substring, label]` pairs checked before the built-in
+  markers, so a more specific private marker wins.
+- Override the file with `--labels-config PATH`. A missing file means no
+  overrides.
+
 ## ISO week semantics
 
 - Week format: `YYYY-Www` (zero-padded, e.g. `2026-W21`).

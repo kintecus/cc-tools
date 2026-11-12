@@ -229,7 +229,7 @@ Two appends under the `# NOTES` section (skip both in `peek` mode):
 2. A short link entry pointing at the HTML file:
 
    ```markdown
-   📄 [Clippings editorial — {date}](file://~/clipping-summaries/{slug}.html) — {N} clippings across {M} topics
+   📄 [Clippings editorial — {date}](file://{absolute path of the HTML file from step 6}) — {N} clippings across {M} topics
    ```
 
 ```bash

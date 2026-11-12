@@ -24,7 +24,7 @@ obsidian-cli read daily 2>&1 | grep -v "Loading updated\|out of date\|better CLI
 ### 1b. Scan git activity across active repos
 
 ```bash
-for dir in ~/code/satori/walletsvc ~/code/satori/magnolia ~/code/satori/adcreator ~/code/client-project/api ~/code/personal/cc-tools ~/code/dotfiles ~/code/homelab ~/code/build ~/code/tribe-coding/claude-plugins; do
+for dir in ~/code/satori/walletsvc ~/code/satori/magnolia ~/code/satori/adcreator ~/code/personal/cc-tools ~/code/dotfiles ~/code/homelab ~/code/build ~/code/tribe-coding/claude-plugins; do
   COMMITS=$(git -C "$dir" log --since="00:00" --oneline --all 2>/dev/null)
   if [ -n "$COMMITS" ]; then
     echo "=== $(basename $(dirname $dir))/$(basename $dir) ==="
@@ -36,7 +36,7 @@ done
 
 ### 1c. Read current memory index
 
-Read `~/.claude/projects/-Users-you-code/memory/MEMORY.md` to know what memories exist.
+Read `~/.claude/projects/<encoded ~/code>/memory/MEMORY.md` (`<encoded ~/code>` is the absolute path of `~/code` with every non-alphanumeric character replaced by `-`, e.g. `-Users-me-code`; resolve it with `printf %s "$HOME/code" | sed 's/[^A-Za-z0-9]/-/g'`) to know what memories exist.
 
 ### 1d. Read retroscope session stats
 
@@ -108,7 +108,7 @@ obsidian-cli append daily content="[formatted review]" 2>&1 | grep -v "Loading u
 
 ## Step 4: Update auto-memory
 
-Review the day's activity for durable insights worth persisting to `~/.claude/projects/-Users-you-code/memory/`. For each insight:
+Review the day's activity for durable insights worth persisting to `~/.claude/projects/<encoded ~/code>/memory/`. For each insight:
 
 1. Check if an existing memory file covers it
 2. Update if stale, create if new, skip if ephemeral
