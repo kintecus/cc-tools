@@ -26,6 +26,7 @@
 | `horizon.weekly.model` | `sonnet` | Synthesis model alias. |
 | `horizon.weekly.deepModel` | `opus` | Synthesis model when `--deep`. |
 | `horizon.bulkModel` | `haiku` | Per-day summarization model. |
+| `horizon.projectsArchiveDir` | unset | Archive copy of `~/.claude/projects` (same layout: one dir per project, `*.jsonl` inside). Used for any window ending before yesterday; see SKILL.md Step 1. Claude Code deletes sessions older than `cleanupPeriodDays` (default 30), so without an archive, older weeks come back incomplete or empty. |
 
 ## CLI flags (override config)
 
