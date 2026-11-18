@@ -17,8 +17,10 @@ Run these sequentially. All read-only.
 
 ### 1a. Read today's daily note
 
+Target the daily-note vault explicitly: read `vault.name` from `~/.config/cc-tools/config.yaml` (if missing, run `obsidian vaults` and ask). Below, `$VAULT` is that name. CLI conventions are in the `daily-note` skill and the official `obsidian:obsidian-cli` skill.
+
 ```bash
-obsidian-cli read daily 2>&1 | grep -v "Loading updated\|out of date\|better CLI"
+obsidian vault="$VAULT" daily:read
 ```
 
 ### 1b. Scan git activity across active repos
@@ -80,7 +82,7 @@ Compare the daily note's TODOs and NOTES against actual git activity and session
 
 ## Step 3: Append to daily note
 
-Use `obsidian-cli append daily` to add the review. Format:
+Use `daily:append` to add the review. Format:
 
 ```
 ## End of day review
@@ -107,8 +109,10 @@ Use `obsidian-cli append daily` to add the review. Format:
 Use wikilinks for projects and people. Keep the tone direct and honest - this is a mirror, not a report card.
 
 ```bash
-obsidian-cli append daily content="[formatted review]" 2>&1 | grep -v "Loading updated\|out of date\|better CLI"
+obsidian vault="$VAULT" daily:append content="[formatted review]"
 ```
+
+Multi-line content works in one call. The exit code is always 0: confirm stdout says `Appended to:` (an `Error:` line means nothing was written), then `daily:read` to verify the review landed.
 
 ## Step 4: Update auto-memory
 

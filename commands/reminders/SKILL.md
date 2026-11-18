@@ -314,7 +314,7 @@ items.
 ## When NOT to use this skill
 
 - Date-anchored events (meetings, appointments, "schedule a call") → `/calendar`
-- Obsidian-internal task tracking / daily-note todos → `obsidian-vault` /
+- Obsidian-internal task tracking / daily-note todos → `obsidian:obsidian-cli` /
   `daily-note`
 - GTD triage of the week's daily notes → `/triage-week` (which may CALL this
   skill to cross-check reminders, but the triage itself lives there)

@@ -332,10 +332,17 @@ Write the synthesis output to the storage-repo path via Read first → Edit/Writ
 
 ## Step 8: Mirror to vault proxy
 
-Write the same Markdown to:
+Resolve the vault root first. Read `vault.name` (and `vault.daily_folder`, default
+`Journal/Daily`) from `~/.config/cc-tools/config.yaml`, then:
+
+```bash
+VAULT_PATH=$(obsidian vault="$VAULT" vault info=path)   # fallback: vault.path from config.yaml
+```
+
+If neither resolves, skip Steps 8-9 with a stderr warning. Write the same Markdown to:
 
 ```
-$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian Vault/02 - AREAS/Retros/weekly/{YYYY-Www}.md
+$VAULT_PATH/02 - AREAS/Retros/weekly/{YYYY-Www}.md
 ```
 
 Create directories if missing. This makes the wikilink `[[YYYY-Www weekly retro]]`
@@ -346,7 +353,7 @@ resolvable inside Obsidian.
 Sunday-of-week is the canonical anchor. Resolve the daily note file path:
 
 ```
-$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian Vault/Journal/Daily/{SUNDAY-YYYY-MM-DD}.md
+$VAULT_PATH/{vault.daily_folder}/{SUNDAY-YYYY-MM-DD}.md
 ```
 
 If the Sunday note exists, append a line under `# NOTES`:
@@ -424,7 +431,7 @@ Emit at most ~3-5 candidates, each one line, e.g.:
 ```
 Harvest candidates (cross-project, durable) — run /harvest-memory to promote:
   - Comp-negotiation rule: state number plainly, ask for their band (job-hunt, recurring)
-  - obsidian-cli vault=PIN must precede the subcommand (tooling, affects daily-note + clippings)
+  - Obsidian CLI exits 0 on errors; check stdout before reporting success (tooling, affects daily-note + clippings)
 ```
 
 If nothing qualifies, print nothing (do not manufacture candidates — a silent step

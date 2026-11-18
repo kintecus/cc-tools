@@ -12,43 +12,31 @@ description: >
 
 The daily note is the single source of truth for the day's activities across all projects and contexts.
 
+This skill owns the *workflow* (what to log, format, rules). For general Obsidian CLI syntax and behavior, see the `obsidian:obsidian-cli` skill from the official `obsidian@obsidian-skills` plugin; for Markdown syntax (wikilinks, callouts, properties), see `obsidian:obsidian-markdown`.
+
+## Target vault
+
+The daily note lives in one specific vault, so always target it explicitly - never rely on cwd or "last focused vault" resolution (the user may have several vaults, and a session's cwd may itself be a vault).
+
+1. Read `vault.name` from `~/.config/cc-tools/config.yaml`.
+2. If the file or key is missing, run `obsidian vaults` and ask the user which vault holds their daily notes.
+
+`vault=` must be the **first** parameter, before the subcommand. Below, `$VAULT` stands for that name.
+
 ## CLI reference
 
-All commands use the `obsidian-cli` wrapper, which auto-pins to "Obsidian Vault" and filters stderr noise.
-
-If the CLI returns empty or fails (Obsidian not running), fall back to reading the file directly:
-
 ```bash
-DAILY_FILE="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian Vault/Journal/Daily/$(date +%Y-%m-%d).md"
+obsidian vault="$VAULT" daily:read                                   # read today's note
+obsidian vault="$VAULT" daily:append content="- **HH:MM** [[Project]] - description"
+obsidian vault="$VAULT" daily:append heading="TODOs" content="- [ ] task"   # insert at end of a section
+obsidian vault="$VAULT" tasks daily todo                             # open tasks in today's note
+obsidian vault="$VAULT" task daily line=N done                       # complete a task
+obsidian vault="$VAULT" daily:path                                   # vault-relative path of today's note
 ```
 
-> **Grammar note:** `daily` is a bare modifier, not a `daily:` namespace.
-> `daily:read` / `daily:append` return "Command not found". The wrapper pins
-> the vault for you (and `vault=` must precede the subcommand, which it handles).
-
-### Read today's note
-
-```bash
-obsidian-cli read daily
-```
-
-### Append to today's note
-
-```bash
-obsidian-cli append daily content="- **HH:MM** [[Project]] - description"
-```
-
-### List open tasks from today's note
-
-```bash
-obsidian-cli tasks daily todo
-```
-
-### Complete a task
-
-```bash
-obsidian-cli task daily line=N done
-```
+- **Exit code is always 0**, even on failure. Read stdout: success prints `Appended to: ...`; failure prints `Error: ...`.
+- Multi-line `content=` works (real newlines or `\n`). `\n` and `\t` escapes are always converted, so write content containing backslashes directly to the file instead.
+- If Obsidian isn't running, the first CLI call launches it. If the CLI is unavailable, fall back to the file: `"$(obsidian vault="$VAULT" vault info=path)/$(obsidian vault="$VAULT" daily:path)"`, or ask the user for the vault path.
 
 ## Activity log format
 
@@ -67,7 +55,7 @@ Use 24h time. Use wikilinks for projects and people. Keep entries terse - one li
 
 ## Project wikilink mapping
 
-Infer the project from the current working directory:
+Infer the project from the current working directory. If `~/.config/cc-tools/config.yaml` has a `projects:` list (`pattern` → `wikilink`), use it; otherwise:
 
 | cwd pattern | Wikilink |
 |---|---|
@@ -80,7 +68,7 @@ Infer the project from the current working directory:
 ## Rules
 
 - **Only append when asked.** Log activity when the user says "log this", "update daily note", "note that down", "wrap up", or similar. Never auto-append.
-- **Read for context.** The daily note is injected at session start. Re-read mid-session with `obsidian-cli read daily` if needed.
-- **TODOs are read-only** unless the user explicitly asks to check off or add a task.
-- **Privacy.** Only interact with today's daily note via the `daily` modifier (`read daily`, `append daily`, `tasks daily`, `task daily`). Do not browse the broader vault through this skill.
-- **Obsidian must be running** for CLI commands to work. If a command fails, tell the user to open Obsidian.
+- **Read for context.** Re-read with `daily:read` mid-session if needed; it is not injected at session start.
+- **TODOs are read-only** unless the user explicitly asks to check off or add a task. New tasks go under the TODOs heading via `heading=`, not at end of file.
+- **Privacy.** Only touch today's daily note through this skill (`daily:*`, `tasks daily`, `task daily`). Do not browse the broader vault from here.
+- **Verify writes.** After an append, check stdout for `Appended to:`; for anything structured, `daily:read` it back.

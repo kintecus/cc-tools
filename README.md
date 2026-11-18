@@ -3,7 +3,7 @@
 > [!TIP]
 > ✨ ***A personal productivity toolkit that lives inside Claude Code.***
 
-Twenty-three slash commands, hooks, and a compact statusline that turn Claude Code into a daily driver: transform writing into your own voice, run an Obsidian daily-note and reflection loop, mine your sessions for weekly retros and billable hours, hold a build to a senior engineering-partner bar, and more. Built for a solo developer who works out of the terminal and an Obsidian vault, on macOS. If you live in Claude Code and want it wired into your notes, calendar, and writing, this is for you.
+Twenty-two slash commands, hooks, and a compact statusline that turn Claude Code into a daily driver: transform writing into your own voice, run an Obsidian daily-note and reflection loop, mine your sessions for weekly retros and billable hours, hold a build to a senior engineering-partner bar, and more. Built for a solo developer who works out of the terminal and an Obsidian vault, on macOS. If you live in Claude Code and want it wired into your notes, calendar, and writing, this is for you.
 
 > [!NOTE]
 > [📦 Installation](#installation) · [🔧 Setup](#setup) · [⚡ Commands](#commands) · [⚙️ Hooks](#hooks) · [📊 Statusline](#statusline) · [📋 References](#references)
@@ -17,7 +17,7 @@ Twenty-three slash commands, hooks, and a compact statusline that turn Claude Co
 
 ## 📦 Installation <a name="installation"></a>
 
-**Requirements:** Claude Code and `python3`. Optional, per-feature: `jq` (statusline), Obsidian v1.12+ (daily-note, reflect, obsidian-vault), a `storageDir` in `~/.claude/retroscope.json` (`/retro today|yesterday`, `/horizon`; see [/retro config](#retro-config)), network access to kroki.io or your own Kroki (Mermaid validation), `yt-dlp` (`/yt-transcript`), the `agy` Antigravity CLI and/or a `GEMINI_API_KEY` (`/ask-gemini`), `ical-buddy` plus Xcode Command Line Tools for the `swift` interpreter (`/calendar`). Each command degrades gracefully when its optional dependency is absent. macOS only for `/calendar` and `/reminders`.
+**Requirements:** Claude Code and `python3`. Optional, per-feature: `jq` (statusline), the official Obsidian CLI, installer 1.12.7+ (daily-note, reflect, digests, horizon; personal-vault skills read `vault.name` from `~/.config/cc-tools/config.yaml`), a `storageDir` in `~/.claude/retroscope.json` (`/retro today|yesterday`, `/horizon`; see [/retro config](#retro-config)), network access to kroki.io or your own Kroki (Mermaid validation), `yt-dlp` (`/yt-transcript`), the `agy` Antigravity CLI and/or a `GEMINI_API_KEY` (`/ask-gemini`), `ical-buddy` plus Xcode Command Line Tools for the `swift` interpreter (`/calendar`). For general vault work (search, read, Bases, Canvas, Obsidian Markdown), install the official [`obsidian@obsidian-skills`](https://github.com/obsidianmd/obsidian-skills) plugin alongside this one; it replaced `/obsidian-vault` in 0.33.0. Each command degrades gracefully when its optional dependency is absent. macOS only for `/calendar` and `/reminders`.
 
 On Claude Code 2.1.275 or later, install in one step:
 
@@ -63,7 +63,6 @@ export GEMINI_API_KEY="your-key-from-aistudio.google.com/apikey"
 - **`/prose-deslop`** - Transform AI-generated text into your natural writing voice, or polish drafts. Format-specific rules for Slack, email (personal/professional/BLUF), PRDs, and vision docs.
 - **`/amazon-writing`** - Apply Amazon-style writing rigor: eliminate weasel words, replace adjectives with data, enforce narrative prose, ensure evidence-backed claims.
 - **`/daily-note`** - Read and append to your Obsidian daily note. Timestamped, wikilinked activity entries across projects.
-- **`/obsidian-vault`** - Read and navigate your Obsidian vault via the CLI: search, follow links, explore the knowledge graph. Read-only by default.
 - **`/reflect`** - End-of-day review: compares daily-note plan vs actual git/session activity, tracks time per project with costs, appends a summary, updates auto-memory with durable insights.
 - **`/pm-principles`** - Structured interview to articulate your PM operating system. Generates a living PRINCIPLES.md.
 - **`/calendar`** - Read and write Apple Calendar (and synced Google/CalDAV). Reads via icalBuddy; creates/deletes one-off, recurring, and irregular multi-date events, and skips single occurrences of a recurring event, via a bundled EventKit script. Events get no alerts unless you ask for them. macOS only.

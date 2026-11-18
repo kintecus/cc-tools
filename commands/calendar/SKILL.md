@@ -316,7 +316,7 @@ Invoke when the user asks about:
 
 - For general task management without a date component → that's a to-do/GTD question, not a calendar one
 - For historical scheduling ("what did I do last Tuesday") → prefer the daily note (`/daily-note` skill)
-- For Obsidian-internal task tracking → use `obsidian-vault` skill
+- For Obsidian-internal task tracking → use the official `obsidian:obsidian-cli` skill (or `daily-note` for daily todos)
 - For editing an existing event's time or title — there is no `update` subcommand by design. Delete and recreate a one-off, or tell the user to edit in Calendar.app.
 
 ## Rules
