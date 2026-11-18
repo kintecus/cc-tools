@@ -42,6 +42,8 @@ commands/
     SKILL.md
   build-partner/        # senior engineering-partner persona (Rams/Fadell/Shape Up/YAGNI)
     SKILL.md
+  design-partner/       # senior design-partner persona (thinking/critique, read-only)
+    SKILL.md
   law-review/           # review a diff/PR/spec against named hacker laws
     SKILL.md
     references/         # laws.md (catalog: signals + not-a-violation-when)
@@ -213,6 +215,7 @@ The daily-note, reflect, clippings-digest, podcast-digest, and horizon skills us
 | `/commit` | PROACTIVE on git commits | Conventional commits with user-facing impact framing |
 | `/statusline` | explicit invocation only | Configure, preview, or troubleshoot the bundled single-line statusline. Segments: 5h/7d limits, session cost, model, effort (hidden at `medium`), context tokens and % with absolute-token bands, 1M marker, repo, branch, open-PR badge. All from the stdin payload except the git branch - no network, no credentials. See the statusline section above. |
 | `/build-partner` | explicit invocation only | Senior engineering-partner persona for building: less-but-better, boring-tech-wins, YAGNI, vertical-slice-first. Owns architecture/data-model/restraint; defers the visual layer to `frontend-design`. |
+| `/design-partner` | explicit invocation only | Thinking-mode sibling of `/build-partner`: senior design-partner persona for shaping, critique, and product direction. Decides what to build and cut; artifact-aware verify checklist (UI vs shaping doc). Read-only (`allowed-tools: Read, Grep, Glob, WebSearch`); hands off to `/build-partner` when building starts. |
 | `/law-review` | explicit invocation only | Read-only, system-level review of a diff, PR, or plan/spec against named laws (Gall, YAGNI, second-system, least astonishment + three-idioms check, Chesterton, Hyrum, Kernighan, distributed-computing fallacies, Kerckhoffs, Goodhart, solved-problem). Blast-radius triage, evidence check, and a mental-model check for the human owner. Complements `/build-partner` (generation) and `/code-review` (line-level bugs). |
 
 ## Adding a new skill
