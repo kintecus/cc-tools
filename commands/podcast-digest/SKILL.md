@@ -179,14 +179,15 @@ on the per-category grouping instead.
 Resolve the vault path and target folder:
 
 ```bash
-VAULT=$(obsidian-cli vault info=path 2>/dev/null)     # requires Obsidian running
-OUT_DIR="$VAULT/03 - RESOURCES/Podcasts"              # DEFAULT — adapt to the user's vault
+# $VAULT = vault.name from ~/.config/cc-tools/config.yaml (if missing: `obsidian vaults`, ask)
+VAULT_PATH=$(obsidian vault="$VAULT" vault info=path)   # check output isn't an "Error:" line
+OUT_DIR="$VAULT_PATH/03 - RESOURCES/Podcasts"          # DEFAULT — adapt to the user's vault
 mkdir -p "$OUT_DIR"                                   # fall back to ~/podcast-summaries if no vault
 ```
 
 > The `03 - RESOURCES/Podcasts` default follows the PARA convention; if the user's
 > vault differs, ask once or honor a `--out <folder>` argument. Never hardcode an
-> absolute vault path — always resolve it via `obsidian-cli`.
+> absolute vault path — always resolve it via the Obsidian CLI (`vault info=path`).
 
 **HTML page** — read `${CLAUDE_PLUGIN_ROOT}/commands/podcast-digest/templates/digest-page.html`
 and fill it in:
@@ -229,8 +230,8 @@ restyling, never a different summary.
 ## Step 7: Optional daily-note pointer
 
 Unless `--no-daily`, append one line to the daily note pointing at the artifacts
-(use the daily-note skill / `obsidian-cli append daily`; one call per line — it drops
-multi-line content):
+(use the daily-note skill / `obsidian vault="$VAULT" daily:append`; confirm stdout
+says `Appended to:`, since the exit code is always 0):
 
 ```
 🎙️ [Podcast digest — {date}]({html-file-uri}) — {N} episodes across {M} topics, {window}
@@ -260,7 +261,7 @@ multi-line content):
 - **Keep it honest.** Extractive summaries; flag preview-model benchmark numbers as
   provisional; never fabricate data for a chart or comparison row. If the batch has
   no real through-line, don't invent one.
-- **Resolve paths dynamically.** `pidcast info` for transcripts, `obsidian-cli` for
-  the vault. Never hardcode an absolute path.
+- **Resolve paths dynamically.** `pidcast info` for transcripts, `obsidian ... vault info=path`
+  for the vault. Never hardcode an absolute path.
 - **Cost guard.** Fan-out over Haiku keeps big windows cheap, but warn before
   processing 60+ transcripts in one run.

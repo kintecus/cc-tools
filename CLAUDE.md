@@ -90,8 +90,7 @@ commands/
 Note: `commands/ask-gemini/` is the first skill that ships its own executable
 inside the command dir. The skill invokes it via
 `${CLAUDE_PLUGIN_ROOT}/commands/ask-gemini/ask-gemini`; it is also exposed on
-`PATH` as bare `ask-gemini` via a symlink in `~/.claude/bin/` (same pattern as
-`scripts/obsidian-cli`).
+`PATH` as bare `ask-gemini` via a symlink in `~/.claude/bin/`.
 
 `commands/calendar/calendar-ek.swift` follows the same bundled-executable
 pattern but is **not** symlinked onto `PATH` and **not** allowlisted: it
@@ -183,7 +182,11 @@ Diagrams` and `## Retroscope` headings, so keep those in `inject-rules.sh`.
 
 ## Obsidian CLI dependency
 
-The daily-note, obsidian-vault, and clippings-digest skills require the Obsidian CLI (`/Applications/Obsidian.app/Contents/MacOS/obsidian`, v1.12+). Obsidian must be running.
+The daily-note, reflect, clippings-digest, podcast-digest, and horizon skills use the official Obsidian CLI (`obsidian`, installer 1.12.7+, enabled in Settings → General → Command line interface). Generic vault work (search, read, Bases, Canvas, Markdown syntax) is delegated to the official [`obsidian@obsidian-skills`](https://github.com/obsidianmd/obsidian-skills) plugin, which replaced this plugin's `obsidian-vault` skill and `scripts/obsidian-cli` wrapper in 0.33.0. Do not re-add a generic CLI reference here; these skills own only the workflow.
+
+- **Vault targeting.** These skills are about one specific vault, so they pass `vault="<name>"` explicitly (it must be the first parameter) using `vault.name` from `~/.config/cc-tools/config.yaml`, and ask via `obsidian vaults` if it's missing. Never rely on cwd/last-focused resolution: with several vaults registered, an unpinned call from a non-vault cwd hits whichever vault was focused last. Never hardcode the vault name or path in committed content.
+- **The CLI exits 0 on failure.** Success and failure are only distinguishable from stdout (`Appended to:` / `Set <prop>:` vs `Error: ...`).
+- Verified on 1.15.1: multi-line `content=` works, `heading=` targets a section, `create` with `vault=` lands in the vault, `property:set` without `.md` errors (it no longer silently no-ops).
 
 ## Commands
 
@@ -192,7 +195,6 @@ The daily-note, obsidian-vault, and clippings-digest skills require the Obsidian
 | `/prose-deslop` | "de-slop", "humanize", "make it sound like me" | Voice transformation with format-specific rules |
 | `/amazon-writing` | "finalize", "make it crisp", "no fluff" | Data-driven writing rigor |
 | `/daily-note` | "log this", "update daily note", "note that down" | Obsidian daily note read/append |
-| `/obsidian-vault` | "obsidian", "vault", "search vault", "read note", "look up in vault" | Read and navigate the Obsidian vault via the CLI: search, follow links, explore the knowledge graph. Read-only by default |
 | `/reflect` | "end of day", "wrap up day", "what did I do today" | Plan vs actual review, time tracking, memory updates |
 | `/pm-principles` | explicit invocation only | PM principles interview generator |
 | `/research` | "research X", "look up X", "find docs for", "compare X vs Y" | Web research with quick/deep modes |
@@ -200,7 +202,7 @@ The daily-note, obsidian-vault, and clippings-digest skills require the Obsidian
 | `/calendar` | "calendar", "schedule", "what's on today", "add to calendar", "create event", "schedule recurring" | Read Apple Calendar via icalBuddy; create/delete/skip/strip-alarms via the bundled `calendar-ek.swift` EventKit CLI. Supports one-off, RRULE series, and `--dates` irregular sets; `skip` drops single occurrences of a series (dry-run, all-or-nothing preflight) while `delete` always removes a whole series. Events get **no alerts** unless `--alarm-minutes` is passed. Writes deliberately avoid AppleScript, which cannot delete alarms (`-10000`) and silently attaches the account default alert |
 | `/reminders` | "reminders", "what's due", "overdue", "remind me to", "add a reminder", "mark X done", "clean up reminders", "reconcile reminders" | Read Apple Reminders via icalBuddy (fast, read-only); create reminders, mark complete, and run a guided reconcile/cleanup pass via AppleScript. Read-safe default; writes confirmed. Documents the Reminders AppleScript `with timeout` requirement and the timed-out-write-may-have-succeeded gotcha |
 | `/clippings-digest` | "digest clippings", "review clippings", "what have I clipped" | Digest unreviewed Obsidian clippings to the daily note + a self-contained HTML editorial page in `~/clipping-summaries/` |
-| `/podcast-digest` | "podcast digest", "digest my podcasts", "summarize recent podcasts", "what have I listened to" | Editorial digest of recent `pidcast` podcast/YouTube transcripts. Resolves the transcripts dir via `pidcast info`, filters to genuine podcast/YT by front-matter `url` (skips meeting recordings, tests, prior digests, analysis side-files), fans out to parallel Haiku subagents, synthesizes a through-line, and writes an HTML editorial page + Markdown archive note into the Obsidian vault (`03 - RESOURCES/Podcasts` default, resolved via `obsidian-cli`). Windowed by recency (default 30d); never overwrites |
+| `/podcast-digest` | "podcast digest", "digest my podcasts", "summarize recent podcasts", "what have I listened to" | Editorial digest of recent `pidcast` podcast/YouTube transcripts. Resolves the transcripts dir via `pidcast info`, filters to genuine podcast/YT by front-matter `url` (skips meeting recordings, tests, prior digests, analysis side-files), fans out to parallel Haiku subagents, synthesizes a through-line, and writes an HTML editorial page + Markdown archive note into the Obsidian vault (`03 - RESOURCES/Podcasts` default, resolved via `obsidian vault info=path`). Windowed by recency (default 30d); never overwrites |
 | `/ask-gemini` | "ask gemini", "what does gemini think", research needing current data | Delegate a question to Google Gemini (Antigravity CLI default, AI Studio API fallback) and return the answer inline |
 | `/yt-transcript` | "what did X say in this video", "find the quote in this talk", "search/summarize this YouTube video" | Fetch a YouTube caption track via yt-dlp, clean/dedupe it, and search/quote/summarize spoken content that web search can't see. Bundled script |
 | `/retro` | "retro", "what did I do", "daily report" | Session (`/retro session`, display only) or daily (`today`/`yesterday`, saved + committed to `storageDir`) retrospective via the bundled `scripts/find-sessions.py`. Config in `~/.claude/retroscope.json` |

@@ -27,10 +27,12 @@ renders a styled, self-contained HTML editorial page.
 
 ## Step 1: Find unreviewed clippings
 
-The `reviewed: true` frontmatter property is the persistent memory of what's been processed. Filter the vault directly via the filesystem to avoid 200+ slow CLI calls:
+The `reviewed: true` frontmatter property is the persistent memory of what's been processed. Filter the vault directly via the filesystem to avoid 200+ slow CLI calls.
+
+Target the user's clippings vault explicitly: read `vault.name` from `~/.config/cc-tools/config.yaml` (if missing, run `obsidian vaults` and ask). Below, `$VAULT` is that name; `vault=` must come before the subcommand. General CLI behavior is covered by the official `obsidian:obsidian-cli` skill.
 
 ```bash
-VAULT_PATH=$(obsidian-cli vault info=path)
+VAULT_PATH=$(obsidian vault="$VAULT" vault info=path)
 cd "$VAULT_PATH/Clippings"
 
 # Files NOT yet marked reviewed: true
@@ -233,11 +235,12 @@ Two appends under the `# NOTES` section (skip both in `peek` mode):
    ```
 
 ```bash
-obsidian-cli append daily content="{line}"
+obsidian vault="$VAULT" daily:append heading="NOTES" content="{digest}"
 ```
 
-`append daily` silently drops multi-line content — issue one `append daily` call
-per line, and verify by reading the daily note afterward.
+Multi-line content works in a single call. The exit code is always 0: check stdout
+for `Appended to:` (an `Error:` line means nothing was written), then `daily:read`
+to verify.
 
 ## Step 7: Mark as reviewed
 
@@ -246,8 +249,11 @@ After the digest is appended and the user has seen it, mark each successfully-su
 ### Default path: use the Obsidian CLI (one call per file)
 
 ```bash
-obsidian-cli property:set name="reviewed" value="true" type=checkbox path="Clippings/<filename>"
+obsidian vault="$VAULT" property:set name="reviewed" value="true" type=checkbox path="Clippings/<filename>.md"
 ```
+
+`path=` must include the `.md` extension. Count a file as marked only if stdout
+prints `Set reviewed: true`; `Error: File ... not found` still exits 0.
 
 **This is the only way to write frontmatter that's safe by default.** The CLI parses YAML properly, so it handles every edge case the Obsidian Web Clipper produces (tags as inline arrays, missing trailing newlines, `---` without leading `\n`, mixed quoting, list values, comments).
 
@@ -296,7 +302,7 @@ Why this is safe:
 After marking, run:
 
 ```bash
-VAULT_PATH=$(obsidian-cli vault info=path)
+VAULT_PATH=$(obsidian vault="$VAULT" vault info=path)
 cd "$VAULT_PATH/Clippings"
 
 # Should equal previous_count + summaries-marked
